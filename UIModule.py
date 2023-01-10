@@ -73,6 +73,8 @@ class simple_learn():
 
         self.w_memory = [np.array([[np.random.rand()*2-1 for i in range(self.noutputs)] for j in range(self.hidden)]) for k in range(self.memory_depth)]
         '''memory weights form 3d array'''
+
+        self.feature_similarity_threshold = .9 #arbitario
     
 
 
@@ -113,11 +115,11 @@ class simple_learn():
             self.age = 0
             #adjust lifespan? 
 
-        return change
+        #return change
 
 
     def evolve(self):
-        self.prune() 
+        #self.prune() 
         self.add_hidden_node(num=3) 
 
     def delta(self, feedback):
@@ -250,24 +252,85 @@ class simple_learn():
                 nodes_to_remove.append(i) 
 
         '''now, to remove the nodes'''
-        if self.hidden < len(nodes_to_remove)+2:
+        if self.hidden < len(nodes_to_remove)+3:
             return 
         self.w1 = np.delete(self.w1.T, nodes_to_remove, axis=0).T 
         self.biases1 = np.delete(self.biases1, nodes_to_remove, axis=0)
         self.w2 = np.delete(self.w2, nodes_to_remove, axis=0) 
         self.hidden -= len(nodes_to_remove) 
         self.delta1 -= len(nodes_to_remove) 
-
+        return
         # '''historical adjustment'''
-        # for n in nodes_to_remove:
-        #     self.memory_register = self.remove_nth_row(self.memory_register.T, n).T 
+        for n in nodes_to_remove:
+            self.memory_register = self.remove_nth_row(self.memory_register.T, n).T 
 
            
-        #     self.w_memory = self.remove_nth_row(self.w_memory, n, ax=1) 
-        
-        pass 
+            self.w_memory = self.remove_nth_row(self.w_memory, n, ax=1) 
+   
+    def prune_similar(self):
+        nodes_to_remove = self.find_common_nodes()
+    
+        if self.hidden < len(nodes_to_remove)+3:
+            return 
+        self.w1 = np.delete(self.w1.T, nodes_to_remove, axis=0).T 
+        self.biases1 = np.delete(self.biases1, nodes_to_remove, axis=0)
+        self.w2 = np.delete(self.w2, nodes_to_remove, axis=0) 
+        self.hidden -= len(nodes_to_remove) 
+        self.delta1 -= len(nodes_to_remove) 
+        return 
+
+    def delete_node(self, node):
+        self.w1 = np.delete(self.w1.T, node, axis=0).T 
+        self.biases1 = np.delete(self.biases1, node, axis=0)
+        self.w2 = np.delete(self.w2, node, axis=0) 
+        self.hidden -= len(node) 
+        self.delta1 -= len(node) 
+
+    def vectorize_node_weights(self, node):
+        vector = np.array([self.w1[i, node] for i in range(self.ninputs)]) 
+        return (vector / np.linalg.norm(vector)) #normalize 
+
+    def find_common_nodes(self):
+        unique_nodes = []
+        redundant_nodes = []
+        for i in range(self.hidden):
+            if not unique_nodes:
+                unique_nodes.append(i)
+                continue 
+            else:
+                present = False
+                for e in unique_nodes:
+                    v1 = self.vectorize_node_weights(i)
+                    v2 = self.vectorize_node_weights(e) 
+                    
+                    if np.dot(v1, v2) > self.feature_similarity_threshold:                      
+                        present=True
+                        break
+
+                if not present:
+                    unique_nodes.append(i)
+                else:
+                    redundant_nodes.append(i) 
+
+        return redundant_nodes
+
+    def unique(self):
+        nodes_to_delete = []
+        w = np.zeros(self.noutputs) 
+        for i in range(self.hidden):
+            for j in range(i, self.hidden-1):
+                v1 = self.vectorize_node_weights(i)
+                v2 = self.vectorize_node_weights(j)
+                if i!=j and np.dot(v1, v2) < self.feature_similarity_threshold:
+                    nodes_to_delete.append(i) 
+                    break
 
 
+        #condense weight information from deleted nodes
+        for n in nodes_to_delete:
+            w += self.w2[n][:] 
+
+        self.delete_node(nodes_to_delete) 
 
     def intelligent_feature_searching(self):
         '''find unique features among nodes'''
@@ -395,30 +458,44 @@ def create_heatmap(nn, xlim=1, ylim=1):
 
 
 
-def test_run():
-    test = simple_learn(3, 1, 3) 
+def test_run(inputs=xor_inputs, outputs=xor_outputs):
+    test = simple_learn(len(inputs[0]), 1, 3) 
     t = 0
-    error = 2
+    error = 3
     
-    while error > .2:
+    while error > 2:
+        
         e = []
         test.max_change = 0
-        for i in range(8):
-            result = test.activate(xor_inputs[i]) 
+        for i in range(len(inputs)):
+            result = test.activate(inputs[i]) 
             # print('test: ', result) 
             # input()
-            loss = xor_outputs[i] - result
+            loss = outputs[i] - result
             test.learn(loss) 
 
             e.append(abs(loss)) 
-
+        #test.prune()
         error = np.sum(e) 
         t += 1
-        print(t, error)
+        #print(t, error)
 
+    print('Num of nodes: ', test.hidden)
     test.prune() 
-    for i in range(8):
-        print(xor_inputs[i], ':, ', test.activate(xor_inputs[i]), xor_outputs[i]) 
+    for i in range(len(inputs)):
+        print(inputs[i], ':, ', test.activate(inputs[i]), outputs[i])
+    # print('second layer max weights: \n\n')
+    # for i in range(test.hidden):
+    #     w = np.absolute(test.w2[:][i])
+    #     print(max(w)) 
+    #test.unique()
+    # print('Num of nodes after similarity prune: ', test.hidden)
+    # for i in range(len(inputs)):
+    #     print(inputs[i], ':, ', test.activate(inputs[i]), outputs[i]) 
+
+    
+    #test.find_common_nodes() 
+
 
     return test 
 
@@ -484,7 +561,7 @@ def main(inputs=xor_inputs, outputs=xor_outputs):
     #test.prune() 
     #test.add_hidden_node(num=3, use_intelligent_search=False) 
     t = 0
-    while error > .2 and t < 100:
+    while error > .5 and t < 100:
       
         #test.prune() 
         test.add_hidden_node(num=3, use_intelligent_search=False) 
@@ -493,23 +570,28 @@ def main(inputs=xor_inputs, outputs=xor_outputs):
         t += 1
         print(t)
 
-    test.prune() 
-
     #create_heatmap(test) 
 
     print('\n') 
+
+
+    
+    #input()
+    # print('num of hidden nodes: ', test.hidden) 
+    # print('iter: ', t) 
+    print('biases before: ', len(test.biases1)) 
+    test.prune_similar() 
+    test.prune() 
+    print('biases after: ', len(test.biases1)) 
 
     for i in range(len(inputs)):
         result = test.activate(inputs[i]) 
         answer = outputs[i]
         e = answer - result 
         print(xor_inputs[i], ':, ', result, answer, e) 
-    #input()
-    # print('num of hidden nodes: ', test.hidden) 
-    # print('iter: ', t) 
-    # print('biases after: ', test.biases1) 
+    #print(test.find_common_nodes())
     # print('done.') 
-    return t, test.biases1, error, test 
+    #return t, test.biases1, error, test 
 
 
 
@@ -517,7 +599,7 @@ if __name__=='main':
     main() 
 
 
-
+main()
             
 
 

@@ -79,7 +79,7 @@ class Market():
     def decide(self, eval):
         if eval == 1:
             self.buy() 
-        elif eval == -1:
+        elif eval == -1 or eval == 2:
             self.sell() 
 
         self.decisions.append(eval)
