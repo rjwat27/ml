@@ -268,7 +268,7 @@ class simple_learn():
             self.w_memory = self.remove_nth_row(self.w_memory, n, ax=1) 
    
     def prune_similar(self):
-        nodes_to_remove = self.find_common_nodes()
+        nodes_to_remove, nodes_to_combine = self.find_common_nodes()
     
         if self.hidden < len(nodes_to_remove)+3:
             return 
@@ -278,6 +278,27 @@ class simple_learn():
         self.hidden -= len(nodes_to_remove) 
         self.delta1 -= len(nodes_to_remove) 
         return 
+
+    def prune_worst(self, num=1):
+        for j in range(num):
+            relevance_scores = []
+            for i in range(self.hidden):
+                temp = self.w1.T 
+
+                if np.max(np.absolute(self.w2[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i]))+self.biases1[i])):
+                    relevance_scores.append(np.max(np.absolute(self.w2[i])))
+
+            if not relevance_scores:
+                continue 
+    
+            m = np.argmin(relevance_scores) 
+
+            self.w1 = np.delete(self.w1.T, m, axis=0).T 
+            self.biases1 = np.delete(self.biases1, m, axis=0)
+            self.w2 = np.delete(self.w2, m, axis=0) 
+            self.hidden -= 1
+            self.delta1 -= 1
+ 
 
     def delete_node(self, node):
         self.w1 = np.delete(self.w1.T, node, axis=0).T 
@@ -312,7 +333,7 @@ class simple_learn():
                 else:
                     redundant_nodes.append(i) 
 
-        return redundant_nodes
+        return redundant_nodes, unique_nodes
 
     def unique(self):
         nodes_to_delete = []
@@ -456,7 +477,79 @@ def create_heatmap(nn, xlim=1, ylim=1):
     ax = sns.heatmap(uniform_data, linewidth=0.5)
     plt.show()
 
+def no_growth_test(num_nodes=3):
+    test = simple_learn(len(xor_inputs[0]), 1, len(xor_inputs[0]))
 
+    
+
+    iter = 0
+    e = 2
+    errors = [1, 1] 
+    converged = False
+
+    test_inputs = [[0], [1]]
+    test_outputs = [1, 0] 
+
+    def o(a, b, c, d, x):
+        return sig(d+c*sig(b+a*x)) 
+
+    def run_learn_cycle():
+        errors = 5
+        iter = 0
+        max_change = 10
+        while np.sum(np.abs(errors)) >= .2 and converged==False and iter<10000 and max_change > .01:
+            e = 0
+            errors = []
+            changes = []
+            for i in range(len(xor_inputs)):
+                result = test.activate(xor_inputs[i])
+
+                answer = xor_outputs[i]
+
+                error = answer - result
+            
+            
+                errors.append(error) 
+
+                for j in range(1):
+                    max_bias_change = test.delta(error)    
+                    max_weight_change = test.adjust(error) 
+
+                changes.append(max_weight_change) 
+
+            max_change = max(changes) 
+
+            iter += 1
+        print('iter: ', iter) 
+        return np.sum(np.abs(errors)), iter  
+
+    error, iter = run_learn_cycle() 
+    #test.prune() 
+    #test.add_hidden_node(num=3, use_intelligent_search=False) 
+    t = 0
+    while error > .5 and t < 500:
+      
+        test.prune_worst(1) 
+        test.add_hidden_node(num=(num_nodes-len(test.biases1)), use_intelligent_search=False) 
+        #test.biases2 = [np.random.rand() for i in range(test.noutputs)] 
+        error, iter = run_learn_cycle()
+        t += 1
+        print(t, len(test.biases1))
+
+    #create_heatmap(test) 
+
+    # print('\nbiases before: ', len(test.biases1)) 
+    # test.prune_similar() 
+    # test.prune() 
+    print('biases after: ', len(test.biases1)) 
+
+    for i in range(len(xor_inputs)):
+        result = test.activate(xor_inputs[i]) 
+        answer = xor_outputs[i]
+        e = answer - result 
+        print(xor_inputs[i], ':, ', result, answer, e) 
+
+    pass 
 
 def test_run(inputs=xor_inputs, outputs=xor_outputs):
     test = simple_learn(len(inputs[0]), 1, 3) 
@@ -589,6 +682,30 @@ def main(inputs=xor_inputs, outputs=xor_outputs):
         answer = outputs[i]
         e = answer - result 
         print(xor_inputs[i], ':, ', result, answer, e) 
+
+    input('Continue...')
+
+    t = 0
+    error = 1
+    while error > .5 and t < 100:
+      
+        #test.prune() 
+        #test.add_hidden_node(num=3, use_intelligent_search=False) 
+        #test.biases2 = [np.random.rand() for i in range(test.noutputs)] 
+        error, iter = run_learn_cycle()
+        t += 1
+        print(t)
+
+    test.prune() 
+
+    for i in range(len(inputs)):
+        result = test.activate(inputs[i]) 
+        answer = outputs[i]
+        e = answer - result 
+        print(xor_inputs[i], ':, ', result, answer, e) 
+
+    print('biases after: ', len(test.biases1)) 
+
     #print(test.find_common_nodes())
     # print('done.') 
     #return t, test.biases1, error, test 
@@ -599,7 +716,7 @@ if __name__=='main':
     main() 
 
 
-main()
+#main()
             
 
 
