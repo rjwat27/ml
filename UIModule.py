@@ -38,10 +38,11 @@ def sig_der(x):
 
 class simple_learn():
     '''simple one hidden layer network'''
-    def __init__(self, inputs, outputs, hidden, learning_rate=.1):
+    def __init__(self, inputs, outputs, hidden, learning_rate=.1, fanout=0):
         self.ninputs = inputs
         self.noutputs = outputs
         self.hidden = hidden 
+        self.fanout = fanout 
 
         self.input = 0
         self.input1 = 0
@@ -69,6 +70,25 @@ class simple_learn():
         self.w1 = np.array([[np.random.rand()*2-1 for i in range(hidden)] for j in range(self.ninputs)])
         self.w2 = np.array([[np.random.rand()*2-1 for i in range(self.noutputs)] for j in range(self.hidden)])
 
+
+        '''set up fanout weight connections'''
+        '''faulty, could possibly be linked twice to the same node'''
+        layer1 = range(self.hidden) 
+        if self.fanout < self.hidden and self.fanout!=0:
+            #self.fanout_encoding1 = [[np.random.choice(layer1, replace=False) for i in range(self.fanout)] for j in range(self.ninputs)]
+            #self.fanout_encoding1 = np.random.choice(layer1, size=(self.ninputs, self.fanout), replace=False)
+            self.fanout_encoding1 = [np.random.choice(layer1, size=self.fanout, replace=False) for i in range(self.ninputs)]
+        else:
+            self.fanout_encoding1 = [layer1 for j in range(self.ninputs)] 
+        if self.fanout < self.noutputs and self.fanout!=0:
+            #self.fanout_encoding2 = [[np.random.choice(range(self.noutputs, replace=False)) for i in range(self.fanout)] for j in range(self.hidden)]
+            #self.fanout_encoding2 = np.random.choice(range(self.noutputs), size=(self.hidden, self.noutptus), replace=False)
+            self.fanout_encoding2 = [np.random.choice(range(self.noutputs)) for i in range(self.hidden)] 
+        else:
+            self.fanout_encoding2 = [range(self.noutputs) for j in range(self.hidden)] 
+
+        '''invert'''
+
       
 
         self.w_memory = [np.array([[np.random.rand()*2-1 for i in range(self.noutputs)] for j in range(self.hidden)]) for k in range(self.memory_depth)]
@@ -91,20 +111,30 @@ class simple_learn():
         if len(self.input3)!=self.noutputs:
             print('incorrect input3 size', len(self.input3)) 
   
-     
-        #historical_inputs = [np.dot(self.memory_register[i], self.w_memory[i]) for i in range(self.memory_depth)] 
-
         output = sig(self.input3 + self.biases2) 
-
-        #self.memory_register = np.append(self.memory_register, np.array([self.input2]), axis=0)
-        
-        # if len(self.memory_register) > self.memory_depth:
-        #     self.memory_register = self.memory_register[1:]  
-
-    
 
         self.output = output 
         return output 
+
+
+    def fanout_activate(self, input):
+        self.input = input
+        self.input1 = np.zeros(self.hidden) 
+        for i in range(self.ninputs):
+            for j in self.fanout_encoding1[i]:
+                self.input1[j] += self.w1[i][j]*input[i]
+        
+        self.input2 = sig(self.input1 + self.biases1)
+        
+        self.input3 = np.zeros(self.noutputs)
+        for i in range(self.hidden):
+            for j in self.fanout_encoding2[i]:
+                self.input3[j] += self.w2[i][j]*self.input2[i] 
+
+        output = sig(self.input3 + self.biases2)
+        self.output = output
+        return output 
+        pass 
 
     def learn(self, feedback):
         self.delta(feedback)
@@ -117,6 +147,7 @@ class simple_learn():
 
         #return change
 
+    
 
     def evolve(self):
         #self.prune() 
@@ -143,7 +174,8 @@ class simple_learn():
         ders = np.array([sig_der(self.input3[i])*feedback[i] for i in range(self.noutputs)])
        
 
-        feedback2 = np.dot(ders, self.w2.T) 
+        #feedback2 = np.dot(ders, self.w2.T)
+        feedback2 = [np.sum([ders[j]*self.w2[i][j] for j in self.fanout_encoding2[i]]) for i in range(self.hidden)]  
 
 
         if len(feedback2)!=self.hidden:
@@ -380,6 +412,7 @@ class simple_learn():
         return matrix
 
 
+
 def ryan_test(inputs=xor_inputs, outputs=xor_outputs):
     '''only update weights...essentially extracting any possible information from a given feature'''
     '''then begin adjusting biases /w weights'''
@@ -477,10 +510,11 @@ def create_heatmap(nn, xlim=1, ylim=1):
     ax = sns.heatmap(uniform_data, linewidth=0.5)
     plt.show()
 
-def no_growth_test(num_nodes=3):
-    test = simple_learn(len(xor_inputs[0]), 1, len(xor_inputs[0]))
+def no_growth_test(num_nodes=3, fanout=0):
+    test = simple_learn(len(xor_inputs[0]), 1, num_nodes, fanout=fanout)
 
-    
+    # print(test.fanout_encoding1)
+    # input()
 
     iter = 0
     e = 2
@@ -502,7 +536,7 @@ def no_growth_test(num_nodes=3):
             errors = []
             changes = []
             for i in range(len(xor_inputs)):
-                result = test.activate(xor_inputs[i])
+                result = test.fanout_activate(xor_inputs[i])
 
                 answer = xor_outputs[i]
 
@@ -527,7 +561,7 @@ def no_growth_test(num_nodes=3):
     #test.prune() 
     #test.add_hidden_node(num=3, use_intelligent_search=False) 
     t = 0
-    while error > .5 and t < 500:
+    while error > .5 and t < 100:
       
         test.prune_worst(1) 
         test.add_hidden_node(num=(num_nodes-len(test.biases1)), use_intelligent_search=False) 
@@ -544,12 +578,18 @@ def no_growth_test(num_nodes=3):
     print('biases after: ', len(test.biases1)) 
 
     for i in range(len(xor_inputs)):
-        result = test.activate(xor_inputs[i]) 
+        result = test.fanout_activate(xor_inputs[i]) 
         answer = xor_outputs[i]
         e = answer - result 
         print(xor_inputs[i], ':, ', result, answer, e) 
 
     pass 
+
+
+def fanout_test(num_nodes=3, fanout=0):
+
+    pass 
+
 
 def test_run(inputs=xor_inputs, outputs=xor_outputs):
     test = simple_learn(len(inputs[0]), 1, 3) 
