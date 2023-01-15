@@ -1,5 +1,5 @@
 import numpy as np 
-import seaborn as sns 
+#import seaborn as sns 
 from matplotlib import pyplot as plt 
 
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
@@ -44,8 +44,9 @@ class simple_learn():
         self.hidden = hidden 
         self.fanout = fanout 
 
-        self.layers = layers + 2
+        
         self.layer_sizes = layer_sizes if layer_sizes else [self.hidden for i in range(layers)] 
+        self.layers = layers + 2
         self.layer_sizes = [self.ninputs] + self.layer_sizes + [self.noutputs] 
 
         self.input = 0
@@ -147,26 +148,37 @@ class simple_learn():
         return output 
 
     #test
-    def layer_activate(self, input):
-        self.input = input
+    def layer_activate(self, input1):
+        self.input = input1
         self.dataflow_matrix[0] = self.input 
-        temp = input 
-        for k in range(self.layers):
+        temp = self.input
+  
+        for k in range(self.layers-1):
+            #print('go')
             for i in range(self.layer_sizes[k]):
-                for j in self.fanout_codes[k+1][i]:
+                #print(k, len(self.fanout_codes)) 
+
+                for j in self.fanout_codes[k][i]:
                     #print(k, i, j)
+                    #print(k, j, np.shape(self.fanout_codes))
                     self.dataflow_matrix[k+1][j] += self.W[k][i][j]*temp[i]
             #print(k)
-            temp = sig(self.dataflow_matrix[k+1] + self.biases[k]) 
-
+            temp = sig(self.dataflow_matrix[k+1] + self.biases[k])
+        self.output = temp
+        
+        return self.output 
+        print('a;sdf: ', len(temp))
+           
+        #input()
         # '''and the output layer'''
-        # o = np.zeros(self.noutputs)
-        # for i in range(self.layer_sizes[-1]):
-        #     for j in range(self.noutputs):
-        #         o[j] += self.W[-1][i][j]*temp[i] 
+        #o = np.zeros(self.noutputs)
+        for i in range(self.layer_sizes[-2]):
+            for j in range(self.noutputs):
+                print(i, len(temp))
+                self.dataflow_matrix[-1][j] += self.W[-1][i][j]*temp[i] 
 
-        self.output = temp#sig(o + self.biases[-1])
-
+        self.output = sig(self.dataflow_matrix[-1] + self.biases[-1])
+   
         return self.output 
         
 
@@ -227,13 +239,15 @@ class simple_learn():
         #feedback2 = np.dot(ders, self.w2.T)
         #feedback2 = [np.sum([ders[j]*self.w2[i][j] for j in self.fanout_encoding2[i]]) for i in range(self.hidden)]  
 
+
         '''update deltas in all hidden layers'''
         for l in range(1, self.layers):
             for i in range(self.layer_sizes[-l]):
                 self.deltas[-l][i] = feedback[i]
                 bias_changes.append(self.learning_rate*feedback[i]*sig_der(self.dataflow_matrix[-l][i]))
-
-            ders = np.array([sig_der(self.dataflow_matrix[-l][i])*self.deltas[-l] for i in range(self.layer_sizes[-l])])
+            # print(feedback, self.deltas[-1]) 
+            # input()
+            ders = np.array([sig_der(self.dataflow_matrix[-l][i])*self.deltas[-l][i] for i in range(self.layer_sizes[-l])])
             # print(len(self.layer_sizes), len(self.W), len(self.fanout_codes))
             # print(l)
             feedback = [np.sum([ders[j]*self.W[-l][i][j] for j in self.fanout_codes[-l][i]]) for i in range(self.layer_sizes[-(l+1)])]
@@ -261,9 +275,10 @@ class simple_learn():
                 for j in range(self.layer_sizes[l+1]):
                     # print(self.layer_sizes) 
                     # print(self.deltas)
-                    d = self.learning_rate*self.deltas[l+1][j]*sig(self.dataflow_matrix[l][i])
+                    d = self.learning_rate*self.deltas[l][j]*sig(self.dataflow_matrix[l][i])
                     weight_changes.append(d) 
-                    #print(self.learning_rate*feedback[j]*self.input2[i])             
+                    #print(self.learning_rate*feedback[j]*self.input2[i]) 
+                    #print(d)            
                     self.W[l][i][j] += d     
 
         return max(weight_changes)                
@@ -322,24 +337,26 @@ class simple_learn():
                 new_weights = np.flip(suggested_weights[g]).flatten()  
 
             else:
-                average_bias_space = np.random.rand()*2*self.ninputs - self.ninputs#abs(np.average(self.biases1) + (np.random.rand()*2-1)) 
+                average_bias_space = np.random.rand()*2*self.layer_sizes[layer_num] - self.layer_sizes[layer_num]#abs(np.average(self.biases1) + (np.random.rand()*2-1)) 
                 #print('new bias: ', average_bias_space)
-                new_weights = np.array([np.random.rand()*2 - 1  for i in range(self.ninputs)]) 
+                new_weights = np.array([np.random.rand()*2 - 1  for i in range(self.layer_sizes[layer_num-1])]) 
                 #new_weights = np.array([1 for i in range(self.ninputs)]) 
         
             #self.w1 = np.append(self.w1.T, np.array([new_weights]), axis=0).T 
-            self.W[layer_num] = np.append(self.W[layer_num].T, np.array([new_weights]), axis=0) 
+            self.W[layer_num-1] = np.append(self.W[layer_num-1].T, np.array([new_weights]), axis=0).T
 
             #self.biases1 = np.append(self.biases1, np.array([average_bias_space]), axis=0)
-            self.biases[layer_num] = np.append(self.biases[layer_num], np.array([average_bias_space]), axis=0)
-            self.layer_sizes[layer_num+1] += 1 
+            #print(self.biases[layer_num-1])
+            self.biases[layer_num-1] = np.append(self.biases[layer_num-1], np.array([average_bias_space]), axis=0)
+            #print(self.biases[layer_num-1])
+            #self.layer_sizes[layer_num] += 1 
 
-            new_weights = np.array([np.random.rand()*2 for i in range(self.layer_sizes[layer_num+2])])
+            new_weights = np.array([np.random.rand()*2 for i in range(self.layer_sizes[layer_num+1])])
             #new_weights = np.array([1 for i in range(self.noutputs)])
 
-            self.W[layer_num+1] = np.append(self.W[layer_num+1], np.array([new_weights]), axis=0)
+            self.W[layer_num] = np.append(self.W[layer_num], np.array([new_weights]), axis=0)
 
-            self.deltas[layer_num] = np.append(self.deltas[layer_num], np.array([0]), axis=0) 
+            self.deltas[layer_num-1] = np.append(self.deltas[layer_num-1], np.array([0]), axis=0) 
 
             # '''expand memory register/weights'''
             # # for m in self.memory_register:
@@ -402,12 +419,15 @@ class simple_learn():
 
     #test layer compatibility
     def prune_worst(self, layer_num, num=1):
+        # print('test: ', self.layer_sizes[layer_num])
+        # input()
         for j in range(num):
             relevance_scores = []
-            for i in range(self.hidden):
+            for i in range(self.layer_sizes[layer_num]):
                 temp = self.W[layer_num].T 
 
-                if np.max(np.absolute(self.W[layer_num][i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i]))+self.biases[layer_num][i])):
+                #print(layer_num, self.biases[layer_num-1])
+                if np.max(np.absolute(self.W[layer_num][i])) < .01 / (.01 + relu(np.sum(np.absolute(self.W[layer_num][i]))+self.biases[layer_num-1][i])):
                     relevance_scores.append(np.max(np.absolute(self.W[layer_num][i])))
 
             if not relevance_scores:
@@ -415,11 +435,12 @@ class simple_learn():
     
             m = np.argmin(relevance_scores) 
 
-            self.W[layer_num] = np.delete(self.w1.T, m, axis=0).T 
-            self.biases[layer_num] = np.delete(self.biases1, m, axis=0)
-            self.W[layer_num] = np.delete(self.w2, m, axis=0) 
-            self.layer_sizes[layer_num+1] -= 1
-            self.deltas[layer_num] -= 1
+            self.W[layer_num-1] = np.delete(self.W[layer_num-1].T, m, axis=0).T 
+            self.biases[layer_num-1] = np.delete(self.biases[layer_num-1], m, axis=0)
+            self.W[layer_num] = np.delete(self.W[layer_num], m, axis=0) 
+            #self.layer_sizes[layer_num] -= 1
+            self.deltas[layer_num-1] = np.delete(self.deltas[layer_num-1], m, axis=0)
+            #self.deltas[layer_num] -= 1
  
 
     def delete_node(self, node):
@@ -495,7 +516,7 @@ def create_heatmap(nn, xlim=1, ylim=1):
 
 def no_growth_test(num_nodes=3, layers=1, fanout=0):
     test = simple_learn(len(xor_inputs[0]), 1, num_nodes, layers=layers, fanout=fanout)
-
+  
     iter = 0
     e = 2
     errors = [1, 1] 
@@ -542,15 +563,18 @@ def no_growth_test(num_nodes=3, layers=1, fanout=0):
  
     t = 0
     while error > .5 and t < 100:
-      
-        test.prune_worst(1) 
-        test.add_hidden_node(num=(num_nodes-len(test.biases1)), use_intelligent_search=False) 
+        #print(test.layers)
+        for i in range(1, test.layers-1):
+            #print(i)
+            test.prune_worst(layer_num=i, num=1) 
+            test.add_hidden_node(layer_num=i, num=(test.layer_sizes[i]-len(test.biases[i-1])), use_intelligent_search=False) 
+            #print(len(test.biases[i-1]))
    
         error, iter = run_learn_cycle()
         t += 1
-        print(t, len(test.biases1))
+        print(t)
  
-    print('biases after: ', len(test.biases1)) 
+    
 
     for i in range(len(xor_inputs)):
         result = test.layer_activate(xor_inputs[i]) 
