@@ -1,5 +1,5 @@
 import numpy as np 
-import seaborn as sns 
+#import seaborn as sns 
 from matplotlib import pyplot as plt 
 
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
@@ -110,19 +110,19 @@ class simple_learn():
         #     self.fanout_codes.append([range(self.noutputs) for j in range(temp[-1])]) 
 
 
-        # layer1 = range(self.hidden) 
-        # if self.fanout < self.hidden and self.fanout!=0:
-        #     #self.fanout_encoding1 = [[np.random.choice(layer1, replace=False) for i in range(self.fanout)] for j in range(self.ninputs)]
-        #     #self.fanout_encoding1 = np.random.choice(layer1, size=(self.ninputs, self.fanout), replace=False)
-        #     self.fanout_encoding1 = [np.random.choice(layer1, size=self.fanout, replace=False) for i in range(self.ninputs)]
-        # else:
-        #     self.fanout_encoding1 = [layer1 for j in range(self.ninputs)] 
-        # if self.fanout < self.noutputs and self.fanout!=0:
-        #     #self.fanout_encoding2 = [[np.random.choice(range(self.noutputs, replace=False)) for i in range(self.fanout)] for j in range(self.hidden)]
-        #     #self.fanout_encoding2 = np.random.choice(range(self.noutputs), size=(self.hidden, self.noutptus), replace=False)
-        #     self.fanout_encoding2 = [np.random.choice(range(self.noutputs)) for i in range(self.hidden)] 
-        # else:
-        #     self.fanout_encoding2 = [range(self.noutputs) for j in range(self.hidden)] 
+        layer1 = range(self.hidden) 
+        if self.fanout < self.hidden and self.fanout!=0:
+            #self.fanout_encoding1 = [[np.random.choice(layer1, replace=False) for i in range(self.fanout)] for j in range(self.ninputs)]
+            #self.fanout_encoding1 = np.random.choice(layer1, size=(self.ninputs, self.fanout), replace=False)
+            self.fanout_encoding1 = [np.random.choice(layer1, size=self.fanout, replace=False) for i in range(self.ninputs)]
+        else:
+            self.fanout_encoding1 = [layer1 for j in range(self.ninputs)] 
+        if self.fanout < self.noutputs and self.fanout!=0:
+            #self.fanout_encoding2 = [[np.random.choice(range(self.noutputs, replace=False)) for i in range(self.fanout)] for j in range(self.hidden)]
+            #self.fanout_encoding2 = np.random.choice(range(self.noutputs), size=(self.hidden, self.noutptus), replace=False)
+            self.fanout_encoding2 = [np.random.choice(range(self.noutputs)) for i in range(self.hidden)] 
+        else:
+            self.fanout_encoding2 = [range(self.noutputs) for j in range(self.hidden)] 
 
         self.feature_similarity_threshold = .9 #arbitario
     
@@ -255,9 +255,9 @@ class simple_learn():
         
     def legacy_delta(self, feedback):
         '''update error history'''
-        self.error_history.append(feedback) 
-        if len(self.error_history) > 20:
-            self.error_history.pop() 
+        #self.error_history.append(feedback) 
+        # if len(self.error_history) > 20:
+        #     self.error_history.pop() 
         '''update learning rate''' 
         self.learning_rate = .01#/(np.std(self.error_history) + .01)
         bias_changes = []
@@ -699,6 +699,80 @@ def no_growth_test(num_nodes=3, layers=1, fanout=0):
 
     pass 
 
+def legacy_no_growth_test(num_nodes=3, fanout=0):
+    test = simple_learn(len(xor_inputs[0]), 1, num_nodes, fanout=fanout)
+
+    # print(test.fanout_encoding1)
+    # input()
+
+    iter = 0
+    e = 2
+    errors = [1, 1] 
+    converged = False
+
+    test_inputs = [[0], [1]]
+    test_outputs = [1, 0] 
+
+    def o(a, b, c, d, x):
+        return sig(d+c*sig(b+a*x)) 
+
+    def run_learn_cycle():
+        errors = 5
+        iter = 0
+        max_change = 10
+        while np.sum(np.abs(errors)) >= .2 and converged==False and iter<10000 and max_change > .01:
+            e = 0
+            errors = []
+            changes = []
+            for i in range(len(xor_inputs)):
+                result = test.activate(xor_inputs[i])
+
+                answer = xor_outputs[i]
+
+                error = answer - result
+            
+            
+                errors.append(error) 
+
+                for j in range(1):
+                    max_bias_change = test.legacy_delta(error)    
+                    max_weight_change = test.legacy_adjust(error) 
+
+                changes.append(max_weight_change) 
+
+            max_change = max(changes) 
+
+            iter += 1
+        print('iter: ', iter) 
+        return np.sum(np.abs(errors)), iter  
+
+    error, iter = run_learn_cycle() 
+    #test.prune() 
+    #test.add_hidden_node(num=3, use_intelligent_search=False) 
+    t = 0
+    while error > .5 and t < 100:
+      
+        test.legacy_prune_worst(1) 
+        test.legacy_add_hidden_node(num=(num_nodes-len(test.biases1)), use_intelligent_search=False) 
+        #test.biases2 = [np.random.rand() for i in range(test.noutputs)] 
+        error, iter = run_learn_cycle()
+        t += 1
+        print(t, len(test.biases1))
+
+    #create_heatmap(test) 
+
+    # print('\nbiases before: ', len(test.biases1)) 
+    # test.prune_similar() 
+    # test.prune() 
+    print('biases after: ', len(test.biases1)) 
+
+    for i in range(len(xor_inputs)):
+        result = test.activate(xor_inputs[i]) 
+        answer = xor_outputs[i]
+        e = answer - result 
+        print(xor_inputs[i], ':, ', result, answer, e) 
+
+    pass 
 
 
 def test_run(inputs=xor_inputs, outputs=xor_outputs):
