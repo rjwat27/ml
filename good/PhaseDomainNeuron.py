@@ -19,7 +19,9 @@ vco_curve = mat['vco_tc_aligned']
 
 class PDN():
 
-    def __init__(self, vref=150, bit_width=4):
+    def __init__(self, key, vref=150, bit_width=4):
+
+        self.key = key
 
         self.stream_max = int(100e3)
         self.feedback_value = 0

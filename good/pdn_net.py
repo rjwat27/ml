@@ -91,6 +91,30 @@ class PDN_Network():
                 for j in self.output_layer:
                     self.connections[(i.key, j.key)] = 1*np.random.rand()
 
+    def import_weights(self, weights, fanout_codes):
+        '''i really, really hope this works'''
+        temp = {}
+        layer_sizes = [self.ninputs] + self.hidden + [self.noutputs] 
+        for i in range(self.ninputs):
+            for j in fanout_codes[0][i]:
+                n1 = self.input_layer[i]
+                n2 = self.hidden[0][j]
+                temp[n1.key, n2.key] = weights[0][i][j]
+        for i in range(len(self.hidden)-1):
+            for j in range(len(self.hidden[i])):
+                for k in fanout_codes[i][j]:
+                    n1 = self.hidden[i][j]
+                    n2 = self.hidden[i+1][k]
+                    temp[n1.key, n2.key] = weights[i][j][k] 
+
+        for i in range(len(self.hidden[-1])):
+            for j in fanout_codes[-1][i]:
+                n1 = self.hidden[-1][i]
+                n2 = self.output_layer[j]
+                temp[n1.key, n2.key] = weights[-1][i][j] 
+          
+        self.connections = temp 
+
     '''pushes inputs onto input neurons and
        pulls output from output neurons'''
 
