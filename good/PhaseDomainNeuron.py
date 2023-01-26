@@ -19,11 +19,12 @@ vco_curve = mat['vco_tc_aligned']
 
 class PDN():
 
-    def __init__(self, key, vref=150, bit_width=4):
+    def __init__(self, vref=150, bit_width=4, key = 0):
 
         self.key = key
 
-        self.stream_max = int(100e3)
+        self.stream_max = int(20e3)
+
         self.feedback_value = 0
         self.feedback_stream = [0 for i in range(self.stream_max)] 
 
@@ -31,6 +32,7 @@ class PDN():
         self.backsignal_stream = [0 for i in range(self.stream_max)]
 
         self.learning_rate = 1e6
+
 
         '''live testing params'''
 
@@ -84,14 +86,8 @@ class PDN():
         self.generate_capacitor_and_dac_values() 
 
     '''called externally'''
-    def push_input(self):
-        if keyboard.is_pressed('enter'):
-            self.input_value = 1
-        else: 
-            self.input_value = 0 
-
-        if keyboard.is_pressed('shift'):
-            self.rotate_plots() 
+    def push_input(self, val):
+        self.input_value += val 
         
     def push_leak(self):
         self.leak = (self.phase/self.period/2) * self.beta 
@@ -99,6 +95,7 @@ class PDN():
     def push_feedback(self):
         self.feedback_stream.append(self.feedback_value)
         self.feedback_stream.pop(0) 
+        self.feedback_value = 0 
 
     def push_backsignal(self):
         self.backsignal_stream.append(self.backsignal_value)
@@ -131,11 +128,11 @@ class PDN():
     def get_dac_value(self):
         '''this is definitely not the use case for vchange that taylor had in mind'''
         self.vchange += self.INPUT_STREAM[-1] 
-        self.vchange = max(-150, self.vchange)
-        self.vchange = min(150, self.vchange) 
+        self.vchange = max(-15, self.vchange)
+        self.vchange = min(15, self.vchange) 
         #print(self.vchange) 
-        #self.total_cap = np.sum(self.capacitor_values) + base_cap 
-        return self.INPUT_STREAM[-1]#(np.dot(self.dac_values, self.capacitor_values) / self.total_cap * self.INPUT_STREAM[-1])#self.vchange) 
+        self.total_cap = np.sum(self.capacitor_values) + base_cap 
+        return self.INPUT_STREAM[-1]#*self.total_cap#(np.dot(self.dac_values, self.capacitor_values) / self.total_cap * self.INPUT_STREAM[-1])#self.vchange) 
 
 
     '''consider creating separate class model for phase-frequency detector->get specs, '''
@@ -204,7 +201,7 @@ class PDN():
         #print(self.input_value) 
         self.INPUT_STREAM.append(new)
         self.INPUT_STREAM.pop(0) 
-        #self.input_value = 0 
+        self.input_value = 0 
 
     def tick_dac(self):
         self.vco_bias += self.get_dac_value() 
@@ -252,8 +249,9 @@ class PDN():
         self.output_stream.pop(0) 
 
     def tick_feedback(self):
-        self.push_feedback() 
-        self.adjust() 
+        self.push_feedback()  
+        self.adjust()
+        self.push_backsignal() 
 
     def tick(self):
         self.tick_input()
@@ -408,28 +406,31 @@ class PDN():
     '''functional tools'''
 
     def forward(self, input_val):
-        self.input_value = input_val 
-
+        self.push_input(input_val) 
         return self.output_stream[-1] 
 
     def backward(self, feedback):
-        self.feedback_value = feedback
+        self.feedback_value += feedback
 
         return self.backsignal_stream[-1] 
+
+    def output(self):
+        return self.output_stream[-1] 
+
+    def backpropagate(self):
+        return self.backsignal_stream[-1] 
+
+
 
 
     def adjust(self):
         corr = np.correlate(self.feedback_stream[-50:-1], self.output_stream[-50:-1]) * self.time_res 
         #print(np.average(corr))
-        self.vref += -self.learning_rate*np.average(corr)
+        change = -self.learning_rate*np.sum(corr)
+        self.vref = min(0, self.vref + change) 
+        self.vreg = max(340, self.vref) 
 
         self.local_freq = self.freq_from_v(self.vref) 
+
+        self.backsignal_value = self.feedback_stream[-1]  
         
-
-
-
-
-
-
-
-

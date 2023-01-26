@@ -198,3 +198,65 @@ brain.import_weights(weights, fanout_codes)
 
 print("Successfully imported weights") 
 
+'''testing pdn network with 3-input xor'''
+
+'''Run simulation for 50000 time steps'''
+t = 0
+sim_len = 50000
+i1 = [0 for i in range(sim_len)] 
+i2 = [0 for i in range(sim_len)] 
+answer_stream = [0 for i in range(sim_len)] 
+while t < 50:
+    '''alternate inputs at 100 time step intervals'''
+    for i in range(len(xor_inputs)):
+        for w in range(100):
+            i1.append(xor_inputs[i][0])
+            i1.pop(0) 
+            i2.append(xor_inputs[i][1])
+            i2.pop(0) 
+
+            result =  brain.forward(xor_inputs[i])[0] 
+
+            answer = xor_outputs[i]
+
+            feedback = answer - result 
+
+            brain.backward([feedback])
+
+            brain.tick_network()
+
+            answer_stream.append(xor_outputs[i])
+            answer_stream.pop(0) 
+
+    t = t+1
+    print(t) 
+print("Plotting") 
+fig, axes = plt.subplots(4)
+
+ax1 = axes[0]
+ax2 = axes[1]
+ax3 = axes[2] 
+ax4 = axes[3]
+#ax5 = axes[4]
+
+
+
+ax1.plot(range(sim_len), i1) 
+ax1.set_title('input 1') 
+
+
+ax2.plot(range(sim_len), i2) 
+ax2.set_title('input 2')
+
+ax3.plot(range(sim_len), brain.output_stream)
+ax3.set_title('network output') 
+
+ax4.plot(range(sim_len), answer_stream)
+ax4.set_title('correct') 
+
+
+plt.show() 
+
+
+
+

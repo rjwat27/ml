@@ -102,10 +102,10 @@ class PDN_Network():
                 temp[n1.key, n2.key] = weights[0][i][j]
         for i in range(len(self.hidden)-1):
             for j in range(len(self.hidden[i])):
-                for k in fanout_codes[i][j]:
+                for k in fanout_codes[i+1][j]:
                     n1 = self.hidden[i][j]
                     n2 = self.hidden[i+1][k]
-                    temp[n1.key, n2.key] = weights[i][j][k] 
+                    temp[n1.key, n2.key] = weights[i+1][j][k] 
 
         for i in range(len(self.hidden[-1])):
             for j in fanout_codes[-1][i]:
