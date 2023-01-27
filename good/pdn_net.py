@@ -1,12 +1,17 @@
+'''
+
+Author: Ryan Watson
+
+Class 'PDN_Network' for real-time simulation 
+of multiple phase domain neurons
+in a generic network
+
+'''
+
+
 import numpy as np
 
 import PhaseDomainNeuron as pdn
-
-
-
-
-
-
 
 class PDN_Network():
     def __init__(self):
@@ -22,6 +27,9 @@ class PDN_Network():
         self.fanout = 0 
         self.learning_rate = .01 
 
+        self.MAX_VREF = 340
+        self.MIN_VREF = 0 
+
         '''experimental PID controller parameters for variable learning rate'''
         self.E = 1
         self.I = .1
@@ -32,14 +40,13 @@ class PDN_Network():
 
 
         #plotting tools
-        self.STREAM_SIZE = int(10e3) 
+        self.STREAM_SIZE = int(8e2) 
         self.input_stream = [0 for i in range(self.STREAM_SIZE)] 
         self.output_stream = [0 for i in range(self.STREAM_SIZE)] 
 
     '''sets up all layers with neuron objects
        and initializes random biases and weights
        between layers'''
-
     def configure(self, params):
         '''pass dict of params for network'''
         self.ninputs = params['ninputs']
@@ -50,7 +57,7 @@ class PDN_Network():
 
         #create layers
 
-        self.input_layer = [pdn.PDN(vref = 150, key=key+i) for i in range(self.ninputs)] 
+        self.input_layer = [pdn.PDN(vref = 10, key=key+i) for i in range(self.ninputs)] 
 
         key += self.ninputs 
         
@@ -91,8 +98,18 @@ class PDN_Network():
                 for j in self.output_layer:
                     self.connections[(i.key, j.key)] = 1*np.random.rand()
 
+    def update_stream_size(self, size):
+        self.input_stream += [0 for i in range(size-self.STREAM_SIZE)]
+        self.output_stream += [0 for i in range(size-self.STREAM_SIZE)]
+        self.STREAM_SIZE = int(size)
+
     def import_weights(self, weights, fanout_codes):
         '''i really, really hope this works'''
+
+        #first, zero out all connections
+        for c in self.connections:
+            self.connections[c] = 0 
+
         temp = {}
         layer_sizes = [self.ninputs] + self.hidden + [self.noutputs] 
         for i in range(self.ninputs):
@@ -115,6 +132,28 @@ class PDN_Network():
           
         self.connections = temp 
 
+    def import_biases(self, biases):
+        '''biases ought to be array of vectors for biases in each layer'''
+
+        '''need to intelligently scale the biases to fit the vref range of the pdn's'''
+        #first layer
+        for i in range(len(self.hidden[0])):
+            n = self.hidden[0][i]
+            b = biases[0][i]
+            n.update_vref(self.MAX_VREF*(b+self.ninputs)/(2*self.ninputs))
+        #the hidden layers
+        for i in range(1, len(self.hidden)):
+            for j in range(len(self.hidden[i])):
+                n = self.hidden[i][j]
+                b = biases[i][j]
+                n.update_vref(self.MAX_VREF*(b+len(self.hidden[i-1]))/(2*len(self.hidden[i-1])))
+
+        #output layer
+        for i in range(self.noutputs):
+            n = self.output_layer[i]
+            b = biases[-1][i]
+            n.update_vref(self.MAX_VREF*(b+len(self.hidden[-1]))/(2*len(self.hidden[-1])))
+        pass 
     '''pushes inputs onto input neurons and
        pulls output from output neurons'''
 
@@ -132,7 +171,8 @@ class PDN_Network():
 
         output = [n.output() for n in self.output_layer] 
 
-        self.output_stream.append(output)
+        '''this part only makes sense for a scalar output'''
+        self.output_stream.append(output[0])
         self.output_stream.pop(0) 
 
         return output

@@ -1,3 +1,11 @@
+'''
+Author: Ryan Watson
+
+Definition for the phase domain neuron
+simulation code for real-time simulations
+
+'''
+
 import numpy as np
 from matplotlib import pyplot as plt 
 import threading
@@ -125,6 +133,10 @@ class PDN():
     def change_dac_values(self, dac_values):    #pass string of dac values as [MSB...LSB]
         self.dac_values = dac_values 
 
+    def update_vref(self, bias):
+        self.vref = bias
+        self.local_freq = self.freq_from_v(self.vref) 
+
     def get_dac_value(self):
         '''this is definitely not the use case for vchange that taylor had in mind'''
         self.vchange += self.INPUT_STREAM[-1] 
@@ -250,7 +262,7 @@ class PDN():
 
     def tick_feedback(self):
         self.push_feedback()  
-        self.adjust()
+        self.adjust()  #TODO uncomment me i am commented for testing
         self.push_backsignal() 
 
     def tick(self):
@@ -418,6 +430,7 @@ class PDN():
         return self.output_stream[-1] 
 
     def backpropagate(self):
+        return self.backsignal_value
         return self.backsignal_stream[-1] 
 
 
@@ -427,8 +440,9 @@ class PDN():
         corr = np.correlate(self.feedback_stream[-50:-1], self.output_stream[-50:-1]) * self.time_res 
         #print(np.average(corr))
         change = -self.learning_rate*np.sum(corr)
+        #print(change) 
         self.vref = min(0, self.vref + change) 
-        self.vreg = max(340, self.vref) 
+        self.vref = max(340, self.vref) 
 
         self.local_freq = self.freq_from_v(self.vref) 
 

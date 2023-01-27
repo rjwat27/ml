@@ -67,15 +67,18 @@ def multi_class_test():
         e = answer - result 
         print(xor_inputs[i], ':, ', result, answer, e) 
 
-    return np.array([net.hidden_layers[n].w1 for n in range(net.layers)]), np.array([net.hidden_layers[n].fanout_encoding1 for n in range(net.layers)])
+    return np.array([net.hidden_layers[n].w1 for n in range(net.layers)]), np.array([net.hidden_layers[n].fanout_encoding1 for n in range(net.layers)]), np.array([net.hidden_layers[n].biases1 for n in range(net.layers)])
 
 
-# weights, fanout_codes = multi_class_test() 
+# weights, fanout_codes, biases = multi_class_test() 
 
 # np.save('xor_weights', weights, allow_pickle=True) 
+# np.save('xor_biases', biases, allow_pickle=True) 
 # np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
 
 # print("Done.\n\n\n") 
+
+# input("Proceed to pdn sim...") 
 
 
 
@@ -185,6 +188,9 @@ def multi_class_test_pdn():
 print("loading weights") 
 '''FORMAT USED TO GENERATE WEIGHTS AND FANOUT CODES: 3, 1, 3, [3, 6, 12, 1], fanout=0 AS INPUT TO fl.fanout_network()'''
 weights = np.load('xor_weights.npy', allow_pickle=True)
+# biases = np.load('xor_biases.npy', allow_pickle=True) 
+# print(np.shape(biases))
+# input()
 fanout_codes = np.load('xor_fanout_codes.npy', allow_pickle=True) 
 
 brain = pdnNet.PDN_Network()
@@ -193,7 +199,7 @@ params = {'ninputs':3, 'noutputs':1, 'fanout':1, 'hidden':[6, 12]}
 
 brain.configure(params=params)
 brain.import_weights(weights, fanout_codes) 
-brain.import_weights(weights, fanout_codes)
+#brain.import_biases(biases)
 
 
 print("Successfully imported weights") 
@@ -202,14 +208,17 @@ print("Successfully imported weights")
 
 '''Run simulation for 50000 time steps'''
 t = 0
-sim_len = 50000
+iterations = 20
+signal_width = 10
+sim_len = iterations * len(xor_inputs) * signal_width
+brain.update_stream_size(sim_len) 
 i1 = [0 for i in range(sim_len)] 
 i2 = [0 for i in range(sim_len)] 
 answer_stream = [0 for i in range(sim_len)] 
-while t < 50:
+while t < iterations:
     '''alternate inputs at 100 time step intervals'''
     for i in range(len(xor_inputs)):
-        for w in range(100):
+        for w in range(signal_width):
             i1.append(xor_inputs[i][0])
             i1.pop(0) 
             i2.append(xor_inputs[i][1])
@@ -243,7 +252,6 @@ ax4 = axes[3]
 
 ax1.plot(range(sim_len), i1) 
 ax1.set_title('input 1') 
-
 
 ax2.plot(range(sim_len), i2) 
 ax2.set_title('input 2')
