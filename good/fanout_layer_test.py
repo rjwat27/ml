@@ -156,7 +156,7 @@ def layered_fanout_test():
 
 '''multi-layer class test'''
 
-net = fl.fanout_network(3, 1, 2, [3, 30, 1], fanout=0) 
+net = fl.fanout_network(3, 1, 3, [3, 10, 20, 1], fanout=0) 
 
 
 def multi_class_test():
