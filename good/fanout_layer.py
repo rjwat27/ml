@@ -106,6 +106,9 @@ class actual_fanout_layer():
     
         return self.max_change
 
+    def adjust_biases(self):
+        for i in range(self.noutputs):
+            self.biases1[i] += -self.learning_rate*self.delta1[i]*self.output[i]
 
 
     def add_hidden_node(self, num=1):
@@ -196,6 +199,10 @@ class fanout_network():
     def adjust(self):
         for l in range(1, self.layers):
             self.hidden_layers[l].adjust()
+
+    def adjust_bias(self):
+        for l in range(self.layers):
+            self.hidden_layers[l].adjust_biases() 
 
     def evolve(self, force=False):
         for l in range(1, self.layers):

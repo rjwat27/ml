@@ -11,7 +11,7 @@ xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]
 
 '''multi-layer class test'''
 
-net = fl.fanout_network(3, 1, 3, [3, 6, 12, 1], fanout=0) 
+net = fl.fanout_network(3, 1, 3, [3, 30, 30, 1], fanout=0) 
 
 
 def multi_class_test():
@@ -70,15 +70,15 @@ def multi_class_test():
     return np.array([net.hidden_layers[n].w1 for n in range(net.layers)]), np.array([net.hidden_layers[n].fanout_encoding1 for n in range(net.layers)]), np.array([net.hidden_layers[n].biases1 for n in range(net.layers)])
 
 
-# weights, fanout_codes, biases = multi_class_test() 
+weights, fanout_codes, biases = multi_class_test() 
 
-# np.save('xor_weights', weights, allow_pickle=True) 
-# np.save('xor_biases', biases, allow_pickle=True) 
-# np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
+np.save('xor_weights', weights, allow_pickle=True) 
+np.save('xor_biases', biases, allow_pickle=True) 
+np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
 
-# print("Done.\n\n\n") 
+print("Done.\n\n\n") 
 
-# input("Proceed to pdn sim...") 
+input("Proceed to pdn sim...") 
 
 
 
@@ -188,14 +188,14 @@ def multi_class_test_pdn():
 print("loading weights") 
 '''FORMAT USED TO GENERATE WEIGHTS AND FANOUT CODES: 3, 1, 3, [3, 6, 12, 1], fanout=0 AS INPUT TO fl.fanout_network()'''
 weights = np.load('xor_weights.npy', allow_pickle=True)
-# biases = np.load('xor_biases.npy', allow_pickle=True) 
+biases = np.load('xor_biases.npy', allow_pickle=True) 
 # print(np.shape(biases))
 # input()
 fanout_codes = np.load('xor_fanout_codes.npy', allow_pickle=True) 
 
 brain = pdnNet.PDN_Network()
 
-params = {'ninputs':3, 'noutputs':1, 'fanout':1, 'hidden':[6, 12]}
+params = {'ninputs':3, 'noutputs':1, 'fanout':1, 'hidden':[30, 30]}
 
 brain.configure(params=params)
 brain.import_weights(weights, fanout_codes) 
