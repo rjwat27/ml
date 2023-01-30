@@ -33,6 +33,8 @@ class DataBase():
         self.size = 0 
         self.validation_size = 0
 
+        self.desired_keys =  ["highPrice", "lowPrice", "priceChangePercent", "volume", 'lastPrice']
+
     def Save(self, data=None, fname=None):
         if fname is None:
             now = datetime.now()
@@ -167,14 +169,20 @@ class DataBase():
         for entry in data:
             self.validation_data[int(entry)] = data[entry]
 
+    def list_of_samples(self, num_of_samples=100, len_of_samples=50):
+        desired_keys =  self.desired_keys
+        samples = [] 
+        training_prices = []
+        data = [[self.tick_data[i+1] for i in range(begin, begin+len_of_samples)] for begin in range(len(self.tick_data) - len_of_samples)] 
 
-    def grab_last_n_ticks(self, depth):
+        for d in data:
+            #result = [database.strip(j, desired_keys) for j in data]#database.strip(d, desired_keys)
+            price = self.raw_strip(d, ['lastPrice']) 
+            result = self.strip(d, desired_keys) 
+            training_prices.append(price[-1]) 
+            samples.append(result.flatten()) 
+
         pass 
-
-
-    def data_queue(self, keys, depth):
-        '''prepare separate time trains for each data category in keys, then string together in series and return the result'''
-        #nah
 
 
 

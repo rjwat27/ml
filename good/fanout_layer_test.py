@@ -12,10 +12,10 @@ xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]
 
 '''multi-layer class test'''
 
-net = fl.fanout_network(3, 1, 3, [3, 30, 30, 1], fanout=0) 
+net1 = fl.fanout_network(3, 1, 3, [3, 30, 30, 1], fanout=0) 
 
 
-def multi_class_test(net):
+def multi_class_test(net, weights=True, biases=False):
   
     e = 2
     errors = [1, 1] 
@@ -25,6 +25,8 @@ def multi_class_test(net):
         errors = 5
         iter = 0
         max_change = 10
+        if not biases:
+            net.evolve(force=True) 
         while np.sum(np.abs(errors)) >= .2 and iter<10000:
             e = 0
             errors = []
@@ -39,7 +41,10 @@ def multi_class_test(net):
                 errors.append(error) 
 
                 net.delta(error)
-                net.adjust() 
+                if weights:
+                    net.adjust()
+                if biases:
+                    net.adjust_biases()  
                 #net.evolve() 
 
             if (iter%1000)==0:
@@ -47,7 +52,6 @@ def multi_class_test(net):
 
             iter += 1
         print('iter: ', iter) 
-        net.evolve(force=True) 
         return np.sum(np.abs(errors)), iter  
 
     error = 2
@@ -71,27 +75,30 @@ def multi_class_test(net):
     return np.array([net.hidden_layers[n].w1 for n in range(net.layers)]), np.array([net.hidden_layers[n].fanout_encoding1 for n in range(net.layers)]), np.array([net.hidden_layers[n].biases1 for n in range(net.layers)])
 
 
-weights, fanout_codes, biases = multi_class_test(net1) 
+# weights, fanout_codes, biases = multi_class_test(net1) 
 
-np.save('xor_weights', weights, allow_pickle=True) 
-np.save('xor_biases', biases, allow_pickle=True) 
-np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
+# np.save('xor_weights', weights, allow_pickle=True) 
+# np.save('xor_biases', biases, allow_pickle=True) 
+# np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
 
-print("Done.\n\n\n") 
+# print("Done.\n\n\n") 
 
-input("Proceed to import weight test...")
+# input("Proceed to import weight test...")
 weights = np.load('xor_weights.npy', allow_pickle=True)
 
 fanout_codes = np.load('xor_fanout_codes.npy', allow_pickle=True) 
 
 biases = np.load('xor_biases.npy', allow_pickle=True)
 
-net2 = fl.fanout_network(3, 1, 2, [3, 30, 1], fanout=3)
+net2 = fl.fanout_network(3, 1, 3, [3, 30, 30, 1], fanout=0)
 net2.import_weights(weights, fanout_codes) 
-net2.import_biases(biases)
+#net2.import_biases(biases)
 print("weight import successful")
 
-multi_class_test(net2) 
+net2.set_biases_high()
+
+
+multi_class_test(net2, weights=False, biases=True) 
 
 print("Done.")
 input()
