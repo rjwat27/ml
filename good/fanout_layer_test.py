@@ -1,7 +1,8 @@
 import numpy as np
 import fanout_layer as fl
-import PhaseDomainNeuron as pdn
-import pdn_net as pdnNet 
+##import PhaseDomainNeuron as pdn
+#import pdn_net as pdnNet 
+#import pdn_net 
 from matplotlib import pyplot as plt 
 
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
@@ -14,7 +15,7 @@ xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]
 net = fl.fanout_network(3, 1, 3, [3, 30, 30, 1], fanout=0) 
 
 
-def multi_class_test():
+def multi_class_test(net):
   
     e = 2
     errors = [1, 1] 
@@ -70,22 +71,37 @@ def multi_class_test():
     return np.array([net.hidden_layers[n].w1 for n in range(net.layers)]), np.array([net.hidden_layers[n].fanout_encoding1 for n in range(net.layers)]), np.array([net.hidden_layers[n].biases1 for n in range(net.layers)])
 
 
-weights, fanout_codes, biases = multi_class_test() 
+weights, fanout_codes, biases = multi_class_test(net1) 
 
 np.save('xor_weights', weights, allow_pickle=True) 
 np.save('xor_biases', biases, allow_pickle=True) 
 np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
 
-print("Done.\n\n\n")  
+print("Done.\n\n\n") 
 
-input("Proceed to pdn sim...") 
+input("Proceed to import weight test...")
+weights = np.load('xor_weights.npy', allow_pickle=True)
+
+fanout_codes = np.load('xor_fanout_codes.npy', allow_pickle=True) 
+
+biases = np.load('xor_biases.npy', allow_pickle=True)
+
+net2 = fl.fanout_network(3, 1, 2, [3, 30, 1], fanout=3)
+net2.import_weights(weights, fanout_codes) 
+net2.import_biases(biases)
+print("weight import successful")
+
+multi_class_test(net2) 
+
+print("Done.")
+input()
 
 
 
 '''same but with phase-domain neuron'''
 '''this is horrifically slow, indeed because weights are supposed to be trained classically before imported to a pdn model'''
 
-pdn_net = fl.fanout_network_with_neuron_structures(3, 1, fanout=0, layers = 3, layer_sizes=[3, 10, 20, 1])
+net = fl.fanout_network(3, 1, 2, [3, 30, 1], fanout=0) 
 
 def multi_class_test_pdn():
   
