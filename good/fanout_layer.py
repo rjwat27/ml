@@ -1,5 +1,5 @@
 import numpy as np
-import PhaseDomainNeuron as pdn 
+#import PhaseDomainNeuron as pdn 
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
 
@@ -181,6 +181,16 @@ class fanout_network():
             return 
         else:
             self.hidden_layers = [actual_fanout_layer(self.layer_sizes[i], self.layer_sizes[i+1], self.learning_rate, self.fanout) for i in range(self.layers)]
+
+    def import_weights(self, weights, fanouts):
+        for i in range(len(weights)):
+            self.hidden_layers[i].w1 = weights[i]
+            self.hidden_layers[i].fanout_encoding1 = fanouts[i] 
+
+    def import_biases(self, biases):
+        for i in range(len(biases)):
+            self.hidden_layers[i].biases1 = biases[i] 
+   
 
     def activate(self, input1):
         for l in self.hidden_layers:
