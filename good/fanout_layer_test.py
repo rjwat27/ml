@@ -76,7 +76,7 @@ np.save('xor_weights', weights, allow_pickle=True)
 np.save('xor_biases', biases, allow_pickle=True) 
 np.save('xor_fanout_codes', fanout_codes, allow_pickle=True) 
 
-print("Done.\n\n\n") 
+print("Done.\n\n\n")  
 
 input("Proceed to pdn sim...") 
 
