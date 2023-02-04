@@ -1,7 +1,7 @@
 import numpy as np 
 
 
-import DataModule as dm 
+from DataModule import DataBase as dm 
 
 import fanout_layer as fl 
 
