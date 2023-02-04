@@ -3,7 +3,7 @@ import fanout_layer as fl
 ##import PhaseDomainNeuron as pdn
 #import pdn_net as pdnNet 
 #import pdn_net 
-from matplotlib import pyplot as plt 
+#from matplotlib import pyplot as plt 
 
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
