@@ -94,6 +94,7 @@ class PDN():
         self.generate_capacitor_and_dac_values() 
 
     '''called externally'''
+    '''TODO add cap divider vup vdown'''
     def push_input(self, val):
         self.input_value += val 
         

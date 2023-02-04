@@ -59,7 +59,7 @@ class DataBase():
         files = os.listdir(file_dir)#local_dir+"/tick data") 
         tick_size = 0
         for file in files:
-            print(file) 
+            #print(file) 
             f = open(file_dir+"/"+file, 'r')
             data = json.load(f) 
             sub_tick = {} 
@@ -169,20 +169,26 @@ class DataBase():
         for entry in data:
             self.validation_data[int(entry)] = data[entry]
 
-    def list_of_samples(self, num_of_samples=100, len_of_samples=50):
+    def list_of_samples(self, num_of_samples=100, len_of_samples=50, tick_epoch=0):
+        '''only makes sense to load single blocks that occurred in same period'''
+        if tick_epoch==0:
+            tick_choice = np.random.choice(range(self.tick_size)) 
+        else:
+            tick_choice = tick_epoch 
         desired_keys =  self.desired_keys
         samples = [] 
         training_prices = []
-        data = [[self.tick_data[i+1] for i in range(begin, begin+len_of_samples)] for begin in range(len(self.tick_data) - len_of_samples)] 
+        data = [[self.tick_data[tick_choice][i+1] for i in range(begin, begin+len_of_samples)] for begin in range(len(self.tick_data[tick_choice]) - len_of_samples)] 
 
         for d in data:
             #result = [database.strip(j, desired_keys) for j in data]#database.strip(d, desired_keys)
-            price = self.raw_strip(d, ['lastPrice']) 
+            price = self.strip(d, ['lastPrice']) 
             result = self.strip(d, desired_keys) 
             training_prices.append(price[-1]) 
             samples.append(result.flatten()) 
 
-        pass 
+        return samples, training_prices 
 
+     
 
 

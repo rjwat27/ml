@@ -819,10 +819,10 @@ def test_run(inputs=xor_inputs, outputs=xor_outputs):
 
 
 
-def main(inputs=xor_inputs, outputs=xor_outputs):
+def main(net, inputs=xor_inputs, outputs=xor_outputs):
 
-    test = simple_learn(len(inputs[0]), 1, len(inputs[0]))
-
+    #test = simple_learn(len(inputs[0]), 1, len(inputs[0]))
+    test = net
     
 
     iter = 0
