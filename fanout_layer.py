@@ -295,13 +295,14 @@ class fanout_network():
                 if n!=None:
                     self.hidden_layers[l].prune_weights(n) 
                 
-                    if self.growth_flag and len(self.hidden_layers[l].biases1) < self.max_layer_size:
-                        self.hidden_layers[l-1].add_hidden_node(3)    #3 arbitrario  
-                        for i in range(3):
-                            self.hidden_layers[l].add_weights()           
-                    else:
-                        self.hidden_layers[l-1].add_hidden_node(self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1))
-                        self.hidden_layers[l].add_weights()
+                if self.growth_flag and len(self.hidden_layers[l].biases1) < self.max_layer_size:
+                    #print('got here ', l)
+                    self.hidden_layers[l-1].add_hidden_node(3)    #3 arbitrario  
+                    for i in range(3):
+                        self.hidden_layers[l].add_weights()           
+                else:
+                    self.hidden_layers[l-1].add_hidden_node(self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1))
+                    self.hidden_layers[l].add_weights()
                     
 
 
@@ -533,6 +534,7 @@ def run_learn_cycle(net, samples, answers, error_margin, random=False, num_iter=
     max_change = 10
     
     net.evolve(force=True) 
+    #input()
     while np.sum(np.abs(errors)) >= error_margin and iter<num_iter:
         e = 0
         errors = []

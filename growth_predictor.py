@@ -9,7 +9,7 @@ import fanout_layer as fl
 #ui.no_growth_test(30, layers=1, fanout=0) 
 #ui.legacy_no_growth_test(30, fanout=0) 
 
-database = dm.DataBase('BTCUSD', "tick_data_BTCUSD.txt")
+database = dm('BTCUSD', "tick_data_BTCUSD.txt")
 
 
 database.Load() 
