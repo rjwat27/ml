@@ -26,7 +26,7 @@ for i in range(len(samples)-1):
 
 samples.pop(0) #reduce sample set size to match answer set 
 
-net = fl.fanout_network(len(samples[0]), 1, 4, [len(samples[0]), 3, 3, 3, 1], 
+net = fl.fanout_network(len(samples[0]), 1, 3, [len(samples[0]), 100, 100, 1], 
                         fanout=0, growth=True) 
 
 #train 
@@ -37,7 +37,7 @@ e = 20
 
 while e > .5 and t < 100:
 
-    e, iter = fl.run_learn_cycle(net, samples, answers, 1, random=True, num_iter=10)
+    e, iter = fl.run_learn_cycle(net, samples, answers, 1, cohort=20, random=True, num_iter=10)
     print('epoch: ', t) 
     print('iter: ', iter) 
     print('layer sizes: %d %d %d', len(net.hidden_layers[0].biases1), len(net.hidden_layers[1].biases1), len(net.hidden_layers[2].biases1))

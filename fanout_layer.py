@@ -85,13 +85,14 @@ class actual_fanout_layer():
         '''update learning rate''' 
         self.learning_rate = .01
         bias_changes = []
+        ders = np.zeros(self.noutputs) 
 
         for i in range(self.noutputs):
             self.delta1[i] = feedback[i]
             bias_changes.append(self.learning_rate*feedback[i]*self.output)
-
+            ders[i] = sig_der(self.output[i]*feedback[i]) 
         '''how to reconcile custom activation function with sig_der?'''
-        ders = np.array([sig_der(self.output[i])*feedback[i] for i in range(self.noutputs)])
+        #ders = np.array([sig_der(self.output[i])*feedback[i] for i in range(self.noutputs)])
         
         if self.fanout != 0: 
             self.back_signal = [np.sum([ders[j]*self.w1[i][j] for j in self.fanout_encoding1[i]]) for i in range(self.ninputs)]  
@@ -218,7 +219,7 @@ class fanout_network():
         self.learning_rate = learning_rate
 
         self.max_change = 0
-        self.max_layer_size = 1000 
+        self.max_layer_size = 100
 
         self.growth_flag = growth 
 
@@ -528,7 +529,7 @@ class fanout_network_with_neuron_structures():
 
 
 '''standard epoch run'''
-def run_learn_cycle(net, samples, answers, error_margin, random=False, num_iter=10000):
+def run_learn_cycle(net, samples, answers, error_margin, cohort, random=False, num_iter=10000):
     errors = 5
     iter = 0
     max_change = 10
@@ -539,7 +540,7 @@ def run_learn_cycle(net, samples, answers, error_margin, random=False, num_iter=
         e = 0
         errors = []
         changes = []
-        for j in range(len(samples)):
+        for j in range(cohort):
             if random:
                 i = np.random.choice(len(samples)) 
             else:
