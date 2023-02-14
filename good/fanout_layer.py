@@ -3,14 +3,14 @@ import numpy as np
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
 
-def relu(x):
-    return np.maximum(0, np.arctan(x)) 
-def sig(x):
-    return relu(x) 
-    return 1/(1+np.exp(-x)) 
-def sig_der(x):
+def relu(x, bias):
+    return np.maximum(0, np.arctan(x+bias)) 
+def sig(x, bias):
+    return relu(x, bias) 
+    return 1/(1+np.exp(-(x+bias))) 
+def sig_der(x, bias):
     return 1 if x > 0 else .1#(1/(1+np.exp(-x)))*(1-1/(1+np.exp(-x))) 
-    return sig(x)*(1-sig(x)) 
+    return sig(x, bias)*(1-sig(x, bias)) 
 
 
   
@@ -25,6 +25,7 @@ class actual_fanout_layer():
         self.fanout = fanout 
 
         self.activation_function = activation_function
+        self.act_der = sig_der 
 
         self.input = 0
         self.input1 = 0
@@ -65,32 +66,43 @@ class actual_fanout_layer():
 
         self.back_signal = [0 for i in range(self.ninputs)] 
 
+    def set_activation(self, function):
+        self.activation_function = function 
+
+    def set_der(self, function):
+        self.act_der = function 
 
     def activate(self, input):
         self.input = input
-        self.input1 = np.zeros(self.noutputs) 
-        for i in range(self.ninputs):
-            for j in self.fanout_encoding1[i]:
-                self.input1[j] += self.w1[i][j]*input[i]
+        if self.fanout != 0:
+            self.input1 = np.zeros(self.noutputs) 
+            for i in range(self.ninputs):
+                for j in self.fanout_encoding1[i]:
+                    self.input1[j] += self.w1[i][j]*input[i]
+        else:
+            self.input1 = np.dot(input, self.w1) 
         
-        output= self.activation_function(self.input1 + self.biases1)
+        output= self.activation_function(self.input1, self.biases1)
         self.output = output 
         return output 
-
-        
+   
     def delta(self, feedback):
         '''update learning rate''' 
         self.learning_rate = .01
         bias_changes = []
+        ders = np.zeros(self.noutputs) 
 
         for i in range(self.noutputs):
             self.delta1[i] = feedback[i]
             bias_changes.append(self.learning_rate*feedback[i]*self.output)
-
+            ders[i] = self.act_der(self.output[i]*feedback[i], 0) 
         '''how to reconcile custom activation function with sig_der?'''
-        ders = np.array([sig_der(self.output[i])*feedback[i] for i in range(self.noutputs)])
+        #ders = np.array([sig_der(self.output[i])*feedback[i] for i in range(self.noutputs)])
         
-        self.back_signal = [np.sum([ders[j]*self.w1[i][j] for j in self.fanout_encoding1[i]]) for i in range(self.ninputs)]  
+        if self.fanout != 0: 
+            self.back_signal = [np.sum([ders[j]*self.w1[i][j] for j in self.fanout_encoding1[i]]) for i in range(self.ninputs)]  
+        else:
+            self.back_signal = [np.dot(ders, self.w1[i]) for i in range(self.ninputs)]  
 
 
         return max(bias_changes[0])  
@@ -111,18 +123,20 @@ class actual_fanout_layer():
         return self.max_change
 
     def randomize_biases(self):
-        self.biases1 = [np.random.rand() for i in range(self.noutputs)] 
+        self.biases1 = [np.random.rand()*(self.bias_b2 - self.bias_b1) + self.bias_b1 for i in range(self.noutputs)] 
+
+    def set_bias_bounds(self, bound1, bound2):
+        self.bias_b1 = bound1
+        self.bias_b2 = bound2 
 
     def adjust_biases(self):
         for i in range(self.noutputs):
             #TODO remove dependency on the output 
             self.biases1[i] += (self.learning_rate*self.delta1[i])#*self.output[i])#*sig_der(self.input1[i])
 
-    
-
     def add_hidden_node(self, num=1):
-        if self.noutputs > 100: #remove?
-            return 
+        # if self.noutputs > 100: #remove?
+        #     return 
         for g in range(num):
             average_bias_space = np.random.rand()*2*self.ninputs - self.ninputs
             new_weights = np.array([np.random.rand()*2 - 1  for i in range(self.ninputs)]) 
@@ -132,6 +146,7 @@ class actual_fanout_layer():
 
             self.delta1 = np.append(self.delta1, np.array([0]), axis=0) 
 
+            self.noutputs += 1
 
     def prune_worst(self, external_weights, num=1):
         m = None 
@@ -143,7 +158,7 @@ class actual_fanout_layer():
             for i in range(self.noutputs):
                 temp = self.w1.T 
 
-                if np.max(np.absolute(external_weights[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i]))+self.biases1[i])):
+                if np.max(np.absolute(external_weights[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i])), self.biases1[i])):
                     relevance_scores.append(np.max(np.absolute(external_weights[i])))
 
             if not relevance_scores:
@@ -153,12 +168,17 @@ class actual_fanout_layer():
 
             self.w1 = np.delete(self.w1.T, m, axis=0).T 
             self.biases1 = np.delete(self.biases1, m, axis=0)
+            self.noutputs -= 1
 
         '''this really only makes sense with one replacement at a time'''
         return m #other external layers need this information   
 
     def prune_weights(self, m):
-        self.w1 = np.delete(self.w1, m, axis=0)    
+        self.w1 = np.delete(self.w1, m, axis=0) 
+        if m is iter:
+            self.ninputs -= len(m)
+        else:
+            self.ninputs -= 1    
 
     def adjust_fanout(self, new_fanout):
         if self.fanout == new_fanout:
@@ -176,11 +196,12 @@ class actual_fanout_layer():
 
             self.fanout = new_fanout 
 
-
     def add_weights(self):
         new_weights = np.array([np.random.rand()*2 for i in range(self.noutputs)])
 
         self.w1 = np.append(self.w1, np.array([new_weights]), axis=0)
+
+        self.ninputs += 1
 
     def vectorize_node_weights(self, node):
         vector = np.array([self.w1[i, node] for i in range(self.ninputs)]) 
@@ -194,7 +215,7 @@ class fanout_network():
     '''layer sizes includes the input size and output size'''
     '''layers denotes the number of input-set weights into a neuron vector, which equals (num_hidden + output_layer)'''
     '''therefore, the layer_sizes will be one greater than layers'''
-    def __init__(self, inputs, outputs, layers, layer_sizes=[], fanout=0, learning_rate=.1, ordered=False):
+    def __init__(self, inputs, outputs, layers, layer_sizes=[], fanout=0, learning_rate=.1, ordered=False, growth=False):
         self.ninputs = inputs
         self.noutputs = outputs 
         self.layers = layers 
@@ -203,13 +224,28 @@ class fanout_network():
         self.learning_rate = learning_rate
 
         self.max_change = 0
+        self.max_layer_size = 100
 
+        self.growth_flag = growth 
+
+        self.activation = relu 
+        self.act_der = sig_der 
 
         if not layer_sizes:
             print("ya yer gonna need some data on the layer sizes") 
             return 
         else:
             self.hidden_layers = [actual_fanout_layer(self.layer_sizes[i], self.layer_sizes[i+1], self.learning_rate, self.fanout, ordered=ordered) for i in range(self.layers)]
+
+    def set_activation(self, function):
+        for l in range(self.layers):
+            self.hidden_layers[l].set_activation(function) 
+        self.activation = function 
+
+    def set_der(self, function):
+        for l in range(self.layers):
+            self.hidden_layers[l].set_der(function) 
+        self.act_der = function 
 
     def import_weights(self, weights, fanouts):
         for i in range(len(weights)):
@@ -220,6 +256,9 @@ class fanout_network():
         for i in range(len(biases)):
             self.hidden_layers[i].biases1 = biases[i] 
    
+    def set_bias_bounds(self, bound_low, bound_high):
+        for l in range(self.layers):
+            self.hidden_layers[l].set_bias_bounds(bound_low, bound_high) 
 
     def activate(self, input1):
         for l in self.hidden_layers:
@@ -272,20 +311,21 @@ class fanout_network():
         for l in range(1, self.layers):
             if self.hidden_layers[l].is_converged() or force:
                 external_weights = self.hidden_layers[l].w1
-                # if max(1, int(np.log10(self.hidden_layers[l-1].noutputs))) != 1:
-                #     print("invalid number of prune neurons entered to prune_worst")
-                #     print(max(1, int(np.log10(self.hidden_layers[l-1].noutputs))), l)
-                #     input()
+ 
                 n = self.hidden_layers[l-1].prune_worst(external_weights, num=1)  #arbitrario
-                # if (self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1)) <= 0:
-                #     print('ERROR REPLACING NODE, NON-POSITIVE INPUT GIVEN')
-                #     input() 
-                
+      
                 if n!=None:
                     self.hidden_layers[l].prune_weights(n) 
                 
+                if self.growth_flag and len(self.hidden_layers[l].biases1) < self.max_layer_size:
+                    #print('got here ', l)
+                    self.hidden_layers[l-1].add_hidden_node(3)    #3 arbitrario  
+                    for i in range(3):
+                        self.hidden_layers[l].add_weights()           
+                else:
                     self.hidden_layers[l-1].add_hidden_node(self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1))
-                    self.hidden_layers[l].add_weights() 
+                    self.hidden_layers[l].add_weights()
+                    
 
 
 class actual_fanout_layer_with_neuron_structures():
@@ -505,4 +545,43 @@ class fanout_network_with_neuron_structures():
     def tick_neurons(self):
         for l in self.hidden_layers:
             l.tick_neurons() 
+
+
+
+
+'''standard epoch run'''
+def run_learn_cycle(net, samples, answers, error_margin, cohort, random=False, num_iter=10000):
+    errors = 5
+    iter = 0
+    max_change = 10
+    
+    net.evolve(force=True) 
+    #input()
+    while np.sum(np.abs(errors)) >= error_margin and iter<num_iter:
+        e = 0
+        errors = []
+        changes = []
+        for j in range(cohort):
+            if random:
+                i = np.random.choice(len(samples)) 
+            else:
+                i=j
+            result = net.activate(samples[i])
+
+            answer = answers[i]
+
+            error = answer - result
+        
+            errors.append(error) 
+
+            net.delta(error)
+            net.adjust() 
+
+        if (iter%1000)==0:
+            print("Iteration: ", iter) 
+
+        iter += 1
+
+    return np.sum(np.abs(errors)), iter  
+
 

@@ -3,14 +3,14 @@ import numpy as np
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
 
-def relu(x):
-    return np.maximum(0, np.arctan(x)) 
-def sig(x):
-    return relu(x) 
-    return 1/(1+np.exp(-x)) 
-def sig_der(x):
+def relu(x, bias):
+    return np.maximum(0, np.arctan(x+bias)) 
+def sig(x, bias):
+    return relu(x, bias) 
+    return 1/(1+np.exp(-(x+bias))) 
+def sig_der(x, bias):
     return 1 if x > 0 else .1#(1/(1+np.exp(-x)))*(1-1/(1+np.exp(-x))) 
-    return sig(x)*(1-sig(x)) 
+    return sig(x, bias)*(1-sig(x, bias)) 
 
 
   
@@ -65,6 +65,8 @@ class actual_fanout_layer():
 
         self.back_signal = [0 for i in range(self.ninputs)] 
 
+    def set_activation(self, function):
+        self.activation_function = function 
 
     def activate(self, input):
         self.input = input
@@ -76,11 +78,10 @@ class actual_fanout_layer():
         else:
             self.input1 = np.dot(input, self.w1) 
         
-        output= self.activation_function(self.input1 + self.biases1)
+        output= self.activation_function(self.input1, self.biases1)
         self.output = output 
         return output 
-
-        
+   
     def delta(self, feedback):
         '''update learning rate''' 
         self.learning_rate = .01
@@ -90,7 +91,7 @@ class actual_fanout_layer():
         for i in range(self.noutputs):
             self.delta1[i] = feedback[i]
             bias_changes.append(self.learning_rate*feedback[i]*self.output)
-            ders[i] = sig_der(self.output[i]*feedback[i]) 
+            ders[i] = sig_der(self.output[i]*feedback[i], 0) 
         '''how to reconcile custom activation function with sig_der?'''
         #ders = np.array([sig_der(self.output[i])*feedback[i] for i in range(self.noutputs)])
         
@@ -223,11 +224,18 @@ class fanout_network():
 
         self.growth_flag = growth 
 
+        self.activation = relu 
+
         if not layer_sizes:
             print("ya yer gonna need some data on the layer sizes") 
             return 
         else:
             self.hidden_layers = [actual_fanout_layer(self.layer_sizes[i], self.layer_sizes[i+1], self.learning_rate, self.fanout, ordered=ordered) for i in range(self.layers)]
+
+    def set_activation(self, function):
+        for l in range(self.layers):
+            self.hidden_layers[l].set_activation(function) 
+        self.activation = function 
 
     def import_weights(self, weights, fanouts):
         for i in range(len(weights)):
@@ -241,6 +249,7 @@ class fanout_network():
 
     def activate(self, input1):
         for l in self.hidden_layers:
+            print('TEST: ', input1) 
             input1 = l.activate(input1)
 
         return input1 
