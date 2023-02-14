@@ -73,6 +73,7 @@ class actual_fanout_layer():
         self.act_der = function 
 
     def activate(self, input):
+     
         self.input = input
         if self.fanout != 0:
             self.input1 = np.zeros(self.noutputs) 
@@ -138,7 +139,8 @@ class actual_fanout_layer():
         # if self.noutputs > 100: #remove?
         #     return 
         for g in range(num):
-            average_bias_space = np.random.rand()*2*self.ninputs - self.ninputs
+            #average_bias_space = np.random.rand()*2*self.ninputs - self.ninputs
+            average_bias_space = np.random.rand()*(self.bias_b2 - self.bias_b1) + self.bias_b1
             new_weights = np.array([np.random.rand()*2 - 1  for i in range(self.ninputs)]) 
 
             self.w1 = np.append(self.w1.T, np.array([new_weights]), axis=0).T 
@@ -148,30 +150,32 @@ class actual_fanout_layer():
 
             self.noutputs += 1
 
-    def prune_worst(self, external_weights, num=1):
+    def prune_worst(self, external_weights, num=1, force=False):
         m = None 
+        worst = []
         if num < 1:
             print("a;lsdkjf;asldjldjf")
             input()
-        if True:#for j in range(num):
+        for j in range(num):
             relevance_scores = []
             for i in range(self.noutputs):
                 temp = self.w1.T 
 
-                if np.max(np.absolute(external_weights[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i])), self.biases1[i])):
+                if np.max(np.absolute(external_weights[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i])), self.biases1[i])) or force:
                     relevance_scores.append(np.max(np.absolute(external_weights[i])))
 
             if not relevance_scores:
                 return None 
     
-            m = np.argmin(relevance_scores) 
+            m = np.argmin(relevance_scores)
+            worst.append(m)  
 
             self.w1 = np.delete(self.w1.T, m, axis=0).T 
             self.biases1 = np.delete(self.biases1, m, axis=0)
             self.noutputs -= 1
 
         '''this really only makes sense with one replacement at a time'''
-        return m #other external layers need this information   
+        return worst #other external layers need this information   
 
     def prune_weights(self, m):
         self.w1 = np.delete(self.w1, m, axis=0) 
@@ -196,6 +200,8 @@ class actual_fanout_layer():
 
             self.fanout = new_fanout 
 
+        
+
     def add_weights(self):
         new_weights = np.array([np.random.rand()*2 for i in range(self.noutputs)])
 
@@ -212,9 +218,9 @@ class actual_fanout_layer():
 
 
 class fanout_network():
-    '''layer sizes includes the input size and output size'''
-    '''layers denotes the number of input-set weights into a neuron vector, which equals (num_hidden + output_layer)'''
-    '''therefore, the layer_sizes will be one greater than layers'''
+    '''layer sizes includes the input size and output size
+    layers denotes the number of input-set weights into a neuron vector, which equals (num_hidden + output_layer)
+    therefore, the layer_sizes will be one greater than layers'''
     def __init__(self, inputs, outputs, layers, layer_sizes=[], fanout=0, learning_rate=.1, ordered=False, growth=False):
         self.ninputs = inputs
         self.noutputs = outputs 
@@ -227,6 +233,8 @@ class fanout_network():
         self.max_layer_size = 100
 
         self.growth_flag = growth 
+        self.layers_to_grow = [i for i in range(layers)] 
+        self.layers_to_adjust = [i for i in range(1, layers)] 
 
         self.activation = relu 
         self.act_der = sig_der 
@@ -249,8 +257,9 @@ class fanout_network():
 
     def import_weights(self, weights, fanouts):
         for i in range(len(weights)):
-            self.hidden_layers[i].w1 = weights[i]
-            self.hidden_layers[i].fanout_encoding1 = fanouts[i] 
+            self.hidden_layers[i].w1 = np.array(weights[i])
+            self.hidden_layers[i].fanout_encoding1 = np.array(fanouts[i]) 
+            #np.reshape(self.hidden_layers[i].w1, (self.hidden_layers[i].ninputs, self.hidden_layers[i].noutputs)) 
 
     def import_biases(self, biases):
         for i in range(len(biases)):
@@ -262,6 +271,8 @@ class fanout_network():
 
     def activate(self, input1):
         for l in self.hidden_layers:
+        
+
             input1 = l.activate(input1)
 
         return input1 
@@ -272,7 +283,7 @@ class fanout_network():
             feedback = self.hidden_layers[-l].backpropogate() 
 
     def adjust(self):
-        for l in range(1, self.layers):
+        for l in self.layers_to_adjust:
             self.hidden_layers[l].adjust()
 
     def randomize_biases(self):
@@ -307,6 +318,12 @@ class fanout_network():
                 # input()
                 self.hidden_layers[l].biases1[i] = .1#np.sum(w[i])
 
+    def set_layers_to_grow(self, layers):
+        self.layers_to_grow = layers
+
+    def set_layers_to_adjust(self, layers):
+        self.layers_to_grow = layers
+
     def evolve(self, force=False):
         for l in range(1, self.layers):
             if self.hidden_layers[l].is_converged() or force:
@@ -317,15 +334,29 @@ class fanout_network():
                 if n!=None:
                     self.hidden_layers[l].prune_weights(n) 
                 
-                if self.growth_flag and len(self.hidden_layers[l].biases1) < self.max_layer_size:
+                if self.growth_flag and (l in self.layers_to_grow) and len(self.hidden_layers[l].biases1) < self.max_layer_size:
                     #print('got here ', l)
                     self.hidden_layers[l-1].add_hidden_node(3)    #3 arbitrario  
                     for i in range(3):
                         self.hidden_layers[l].add_weights()           
-                else:
+                elif n!=None:
+                 
                     self.hidden_layers[l-1].add_hidden_node(self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1))
-                    self.hidden_layers[l].add_weights()
+                    for i in n:
+                        self.hidden_layers[l].add_weights()
                     
+    '''layer argument cannot be used to distill output layer'''
+    def distill(self, layer, target_size):
+  
+        external_weights = self.hidden_layers[layer+1].w1
+
+        to_remove = self.hidden_layers[layer].noutputs - target_size
+
+        n = self.hidden_layers[layer].prune_worst(external_weights, num=to_remove, force=True)  #arbitrario
+
+        self.hidden_layers[layer+1].prune_weights(n) 
+
+
 
 
 class actual_fanout_layer_with_neuron_structures():
