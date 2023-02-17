@@ -35,6 +35,8 @@ t = 0
 
 e = 20
 
+input(len(samples))
+
 while e > .5 and t < 100:
 
     e, iter = fl.run_learn_cycle(net, samples, answers, 1, cohort=20, random=True, num_iter=10)

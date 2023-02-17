@@ -118,6 +118,7 @@ class actual_fanout_layer():
             for j in range(self.noutputs):
                 weight_changes.append(self.learning_rate*self.delta1[j]*self.input[i])             
                 self.w1[i][j] += self.learning_rate*self.delta1[j]*self.input[i] 
+                self.w1[i][j] = min(max(self.weight_low, self.w1[i][j]), self.weight_high)
 
         self.max_change = max(weight_changes)
     
@@ -129,6 +130,10 @@ class actual_fanout_layer():
     def set_bias_bounds(self, bound1, bound2):
         self.bias_b1 = bound1
         self.bias_b2 = bound2 
+
+    def set_weight_bounds(self, b1, b2):
+        self.weight_low = b1
+        self.weight_high = b2
 
     def adjust_biases(self):
         for i in range(self.noutputs):
@@ -160,7 +165,7 @@ class actual_fanout_layer():
             relevance_scores = []
             for i in range(self.noutputs):
                 temp = self.w1.T 
-
+                #print(external_weights[i]) 
                 if np.max(np.absolute(external_weights[i])) < .01 / (.01 + relu(np.sum(np.absolute(temp[i])), self.biases1[i])) or force:
                     relevance_scores.append(np.max(np.absolute(external_weights[i])))
 
@@ -236,6 +241,8 @@ class fanout_network():
         self.layers_to_grow = [i for i in range(layers)] 
         self.layers_to_adjust = [i for i in range(1, layers)] 
 
+        self.ordered = ordered 
+
         self.activation = relu 
         self.act_der = sig_der 
 
@@ -256,10 +263,15 @@ class fanout_network():
         self.act_der = function 
 
     def import_weights(self, weights, fanouts):
+       # temp = [self.ninputs]
         for i in range(len(weights)):
             self.hidden_layers[i].w1 = np.array(weights[i])
+            #temp.append(np.shape(weights[i])[1]) 
             self.hidden_layers[i].fanout_encoding1 = np.array(fanouts[i]) 
             #np.reshape(self.hidden_layers[i].w1, (self.hidden_layers[i].ninputs, self.hidden_layers[i].noutputs)) 
+
+        #self.layer_sizes = temp 
+        
 
     def import_biases(self, biases):
         for i in range(len(biases)):
@@ -269,10 +281,14 @@ class fanout_network():
         for l in range(self.layers):
             self.hidden_layers[l].set_bias_bounds(bound_low, bound_high) 
 
+    def set_weight_bounds(self, w_low, w_high):
+        for l in range(self.layers):
+            self.hidden_layers[l].set_weight_bounds(w_low, w_high) 
+
     def activate(self, input1):
         for l in self.hidden_layers:
-        
-
+            #print(l, l.noutputs) 
+            #print('TEST: ', np.shape(l.w1))
             input1 = l.activate(input1)
 
         return input1 
@@ -284,6 +300,8 @@ class fanout_network():
 
     def adjust(self):
         for l in self.layers_to_adjust:
+            j = self.hidden_layers[l]
+            #print(l, j.noutputs, self.layers_to_adjust) 
             self.hidden_layers[l].adjust()
 
     def randomize_biases(self):
@@ -322,15 +340,15 @@ class fanout_network():
         self.layers_to_grow = layers
 
     def set_layers_to_adjust(self, layers):
-        self.layers_to_grow = layers
+        self.layers_to_adjust = layers
 
     def evolve(self, force=False):
         for l in range(1, self.layers):
             if self.hidden_layers[l].is_converged() or force:
                 external_weights = self.hidden_layers[l].w1
- 
+                #print(self.layer_sizes) 
                 n = self.hidden_layers[l-1].prune_worst(external_weights, num=1)  #arbitrario
-      
+                print('pre test: ', self.hidden_layers[l-1].noutputs, len(self.hidden_layers[l-1].biases1), n)
                 if n!=None:
                     self.hidden_layers[l].prune_weights(n) 
                 
@@ -340,11 +358,18 @@ class fanout_network():
                     for i in range(3):
                         self.hidden_layers[l].add_weights()           
                 elif n!=None:
-                 
-                    self.hidden_layers[l-1].add_hidden_node(self.hidden_layers[l-1].noutputs - len(self.hidden_layers[l-1].biases1))
+                    print('TEST: ', self.hidden_layers[l-1].noutputs, len(self.hidden_layers[l-1].biases1), n)
+                    self.hidden_layers[l-1].add_hidden_node(len(n))
                     for i in n:
                         self.hidden_layers[l].add_weights()
-                    
+        self.update_layer_sizes()
+
+    def update_layer_sizes(self):
+        temp = [self.ninputs]
+        for l in self.hidden_layers:
+            temp.append(l.noutputs) 
+        self.layer_sizes = temp 
+
     '''layer argument cannot be used to distill output layer'''
     def distill(self, layer, target_size):
   
@@ -355,6 +380,8 @@ class fanout_network():
         n = self.hidden_layers[layer].prune_worst(external_weights, num=to_remove, force=True)  #arbitrario
 
         self.hidden_layers[layer+1].prune_weights(n) 
+
+        self.update_layer_sizes()
 
 
 
@@ -587,6 +614,7 @@ def run_learn_cycle(net, samples, answers, error_margin, cohort, random=False, n
     max_change = 10
     
     net.evolve(force=True) 
+    print([l.noutputs for l in net.hidden_layers])
     #input()
     while np.sum(np.abs(errors)) >= error_margin and iter<num_iter:
         e = 0
