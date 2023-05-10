@@ -1,6 +1,6 @@
 
 import numpy as np 
-import DataModule as dm
+import market_forecast.DataModule as dm
 
 class Market():
     def __init__(self, max=1000, start=100):

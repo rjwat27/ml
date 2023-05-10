@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
 
-min_bias = .01
+min_bias = .18
 max_bias = 1
 
 def spiking_activation(x, bias):
@@ -68,51 +68,70 @@ def load():
 
     return weights, fanout_codes, biases 
 
-learn(net) 
-save(net)
+# learn(net) 
+# save(net)
+
+#
 # input('add layer...') 
-w, f, b = load()
-net.import_weights(w, f)
-net.import_biases(b) 
-# #learn(net)
-
-# #now add layer to network
-net.layers += 1
-net.layer_sizes.insert(-1, 3)
-l = fl.actual_fanout_layer(net.layer_sizes[1], 3)
-l.w1 = np.array([w[-1], w[-1], w[-1]]).T[0]
-# # print(np.shape(l.w1[0]))
-# # input()
-net.hidden_layers.insert(-1, l)
-w1 = np.array([[np.random.rand()*2-1 for i in range(1)] for j in range(3)])
-net.hidden_layers[-1].w1 = w1
-net.hidden_layers[-1].ninputs = 3
-
-net.set_activation(spiking_activation) 
-net.set_der(spiking_der) 
-net.set_bias_bounds(min_bias, max_bias) 
+net.growth_flag = True
+# w, f, b = load()
+# net.import_weights(w, f)
+# net.import_biases(b) 
+learn(net)
+#input('try normalized weights') 
+net.normalize_weights(bias_scale=True) 
 net.set_weight_bounds(-1, 1) 
-net.hidden_layers[-2].randomize_biases()
 
-# # #set only new layer to be the one learning 
-net.set_layers_to_grow([])
-net.set_layers_to_adjust([2])
+learn(net) 
+for h in net.hidden_layers:
+    for w in h.w1:
+        for y in w:
+            if abs(y) > 1:
+                input('What the heck') 
+save(net) 
+input('all good') 
+
+'''block that adds a layer to the network'''
+# #now add layer to network
+# net.layers += 1
+# net.layer_sizes.insert(-1, 3)
+# l = fl.actual_fanout_layer(net.layer_sizes[1], 3)
+# l.w1 = np.array([w[-1], w[-1], w[-1]]).T[0]
+# # # print(np.shape(l.w1[0]))
+# # # input()
+# net.hidden_layers.insert(-1, l)
+# w1 = np.array([[np.random.rand()*2-1 for i in range(1)] for j in range(3)])
+# net.hidden_layers[-1].w1 = w1
+# net.hidden_layers[-1].ninputs = 3
+
+# net.set_activation(spiking_activation) 
+# net.set_der(spiking_der) 
+# net.set_bias_bounds(min_bias, max_bias) 
+# net.set_weight_bounds(-1, 1) 
+# net.hidden_layers[-2].randomize_biases()
+
+# # # #set only new layer to be the one learning 
+# net.set_layers_to_grow([])
+# net.set_layers_to_adjust([2])
 
 # # #input(net.hidden_layers)
 
 
 
-net.update_layer_sizes()
+# net.update_layer_sizes()
 
-#test
-# print('layer sizes: ', net.layer_sizes)
-# print('actual: ', [l.noutputs for l in net.hidden_layers]) 
-# input()
+# #test
+# # print('layer sizes: ', net.layer_sizes)
+# # print('actual: ', [l.noutputs for l in net.hidden_layers]) 
+# # input()
 
-#learn again 
-learn(net) 
+# #learn again 
+# learn(net) 
 # input()
 save(net) 
+input()
+'''end of block adding a layer'''
+
 print('distilling net')
 
 

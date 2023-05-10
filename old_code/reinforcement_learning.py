@@ -1,7 +1,7 @@
 import numpy as np
 import copy, random  
 
-import DataModule as dm
+import market_forecast.DataModule as dm
 import learning_test3 as lt3 
 import VirtualMarketModule as vm 
 import VisualizeModule as vis 

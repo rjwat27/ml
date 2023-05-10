@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-import DataModule as dm, ArchetypeModule as am  
+import market_forecast.DataModule as dm, ArchetypeModule as am  
 #module for graphical representation of bot performance
 
 #learning visual

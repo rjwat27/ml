@@ -7,7 +7,7 @@ import argparse, os, sys
 
 #import NEATModule as neat, NNModule as nn, TrainingModule as tm
 import TrainingModule as tm, NNModule as nn 
-import DataModule as dm, ArchetypeModule as am#, PartitionModule as pm 
+import market_forecast.DataModule as dm, ArchetypeModule as am#, PartitionModule as pm 
 import VirtualMarketModule as vm, VisualizeModule as vis  
 
 class Connection:

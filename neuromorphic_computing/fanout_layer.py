@@ -46,7 +46,8 @@ class actual_fanout_layer():
         self.learning_rate = learning_rate
 
         self.w1 = np.array([[np.random.rand()*2-1 for i in range(self.noutputs)] for j in range(self.ninputs)])
-       
+        self.weight_low = -100
+        self.weight_high = 100
 
 
         '''set up fanout weight connections'''
@@ -134,6 +135,21 @@ class actual_fanout_layer():
     def set_weight_bounds(self, b1, b2):
         self.weight_low = b1
         self.weight_high = b2
+
+    def normalize_weights(self, bias_scale=False):
+        '''scale weight values between -1 and 1'''
+        W = self.w1.T
+        new_W = np.zeros((self.noutputs, self.ninputs)) 
+        for i in range(self.noutputs):
+            w = W[i]
+            big = max(np.abs(w))
+            #input(big)
+            new_w = w / big 
+            new_W[i] = new_w 
+            if bias_scale:
+                self.biases1[i] *= big
+        self.w1 = new_W.T  
+        pass 
 
     def adjust_biases(self):
         for i in range(self.noutputs):
@@ -297,6 +313,10 @@ class fanout_network():
         for l in range(1, self.layers+1):
             self.hidden_layers[-l].delta(feedback)
             feedback = self.hidden_layers[-l].backpropogate() 
+
+    def normalize_weights(self, bias_scale):
+        for l in self.hidden_layers:
+            l.normalize_weights(bias_scale=bias_scale) 
 
     def adjust(self):
         for l in self.layers_to_adjust:

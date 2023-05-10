@@ -5,7 +5,7 @@ from sklearn import svm
 from sklearn.neural_network import MLPRegressor as mlp
 from torch import convolution
 
-import DataModule as dm 
+import market_forecast.DataModule as dm 
 
 import VirtualMarketModule as vm
 

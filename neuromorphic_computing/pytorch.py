@@ -17,7 +17,7 @@ import torchvision.transforms as T
 from time import sleep 
 
 #import cryptoVision_Top as ct 
-import DataModule as dm 
+import market_forecast.DataModule as dm 
 
 
 # if gpu is to be used

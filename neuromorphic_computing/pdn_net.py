@@ -224,6 +224,216 @@ class PDN_Network():
 
 
 
+class pdn_network():
+    def __init__(self, ninputs, noutputs, hidden):
+        '''hidden is list of layer sizes, excluding input layer and output layer'''
+        self.ninputs = ninputs
+        self.noutputs = noutputs 
+
+        self.hidden = hidden 
+
+        self.input_layer = [pdn.PDN() for i in range(ninputs)] 
+
+        self.hidden_layers = [[pdn.PDN() for i in range(j)] for j in hidden]
+
+        # self.hidden_layers.pop(0)
+        # self.hidden.pop(0)
+
+        self.output_layer = [pdn.PDN() for i in range(noutputs)]
+
+        self.weights = []
+        self.biases = []
+
+        #plotting stuf
+        self.stream_size = 10000
+        self.output_stream = [0 for i in range(self.stream_size)]
+
+        #stuff for saving data
+        self.weights_file_addr = 'weights.npy'
+        self.biases_file_addr = 'biases.npy' 
+
+    def Save(self):
+        np.save('weights', self.weights, allow_pickle=True)
+        self.enumerate_biases() 
+        np.save('biases', self.biases, allow_pickle=True) 
+        print('Saved successfully') 
+
+    def Load(self):
+        weights = np.load(self.weights_file_addr, allow_pickle=True)
+        #input(weights)
+        biases = np.load(self.biases_file_addr, allow_pickle=True)
+  
+        self.weights = weights 
+
+        '''input neuron vref not set here!'''
+
+        layers = self.hidden_layers + [self.output_layer] 
+        for i in range(len(layers)):
+            for j in range(len(layers[i])):
+                if hasattr(layers[i], 'iter'):
+                    layers[i].update_vref(biases[i][j])
+                else:
+                    layers[i][j].update_vref(biases[i][j])
+
+        print('Loaded successfully')
+        
+    def enumerate_biases(self):
+        temp = []
+        for l in self.hidden_layers:
+            te = []
+            for n in l:
+                te.append(n.vref)
+            temp.append(te)
+        tem = []
+        for n in self.output_layer:
+            tem.append(n.vref) 
+        temp.append(tem) 
+        self.biases = temp 
+
+    def activate(self, input1):
+        input1 = [self.input_layer[i].forward(input1[i]) for i in range(self.ninputs)]
+        #print('first result:', input1)
+        # print(self.weights[0]) 
+        input1 = np.dot(input1, self.weights[0])  
+      
+
+        for i in range(len(self.hidden)-1):
+            input1 = [self.hidden_layers[i][j].forward(input1[j]) for j in range(self.hidden[i])]
+            #print(input1)
+            input1 = np.dot(input1, self.weights[i+1]) 
+            
+        # print(self.weights[-1])
+        # input()
+        self.output = [self.output_layer[i].forward(input1[i]) for i in range(self.noutputs)]
+        #print([n.vref for n in self.output_layer])
+        # print(self.weights[-1]) 
+        # input()
+        #self.tick_network()
+        return self.output 
+
+    def activate_hidden_layer(self, input1, layer_num):
+        '''layer_num=0 for output of first hidden layer, etc.'''
+        input1 = [self.input_layer[i].forward(input1[i]) for i in range(self.ninputs)]
+
+        input1 = np.dot(input1, self.weights[0])  
+      
+        for i in range(layer_num):
+            input1 = [self.hidden_layers[i][j].forward(input1[j]) for j in range(self.hidden[i])]
+            #print(input1)
+            input1 = np.dot(input1, self.weights[i+1])
+
+        return [self.hidden_layers[layer_num][j].forward(input1[j]) for j in range(self.hidden[layer_num])]
+
+    '''often more useful to get a whole burst of outputs for a single driven
+        input, for an average energy output metric. Well gents, here 'tis'''
+    def activate_burst(self, input1, length):
+        output = []
+
+        for i in range(length):
+            #print(i+1)
+            output.append(self.activate(input1)) 
+            #self.tick_network() 
+        return output
+
+    def hidden_layer_burst(self, input1, length, hidden_layer_num):
+        output = []
+        for i in range(length):
+            #print(i+1)
+            output.append(self.activate_hidden_layer(input1, hidden_layer_num)) 
+            self.tick_network() 
+        return output
+
+    def import_biases(self, biases):
+        '''ensure biases are already transformed'''
+        for i in range(self.ninputs):
+            self.input_layer[i].update_vref(biases[0][i])
+
+        for i in range(len(self.hidden)):
+            for j in range(self.hidden[i]):
+                self.hidden_layers[i][j].update_vref(biases[i][j]) 
+
+        for i in range(self.noutputs):
+            self.output_layer[i].update_vref(biases[-1][i]) 
+
+    def tick_network(self):
+        for n in self.input_layer:
+            n.tick()
+        for l in self.hidden_layers:
+            for n in l:
+                n.tick()
+        for n in self.output_layer:
+            n.tick() 
+
+    def calibrate_network_biases(self, max_input, biases):
+        '''this assumes a multiplicative bias relu-type unit'''
+        b = biases[0] 
+        print('calibrating input layer') 
+        for i in range(self.ninputs):
+            print(i)
+            #max_output = max_input[i]*b[i]
+            max_output = b[i]
+            print(max_input)
+            result = self.input_layer[i].calibrate_vref(max_input[i], max_output) 
+            # if not result:
+            #     print('neuron calibration failed') 
+
+        max_input = [np.average(n.forward_burst(max_input[i], iter=100)) for n in self.input_layer] 
+
+        w = self.weights[0]
+        temp = max_input.copy() 
+        max_input = np.zeros(np.shape(self.weights[0])[1]) 
+        for i in range(len(max_input)):
+            max_input[i] = np.sum([w[j][i]*temp[j] for j in range(len(temp)) if w[j][i] > 0])
+
+        print('\n\ncalibrating hidden layers') 
+        
+        for j in range(len(self.hidden_layers)-1):
+            b = biases[j] 
+            print('layer: ', j) 
+            for i in range(len(self.hidden_layers[j])):
+                print(i)
+                if hasattr(b, '__iter__'):
+                    #max_output = max_input[i]*b[i]
+                    max_output = b[i] 
+                else:
+                   #max_output = max_input[i]*b 
+                   max_output = b
+                #input(max_input[i]) 
+                result = self.hidden_layers[j][i].calibrate_vref(max_input[i], max_output) 
+                # if not result:
+                #     print('neuron calibration failed') 
+            
+           
+            max_input = [np.average(n.forward_burst(max_input[i], iter=100)) for n in self.hidden_layers[j]]
+
+            w = self.weights[j+1]
+            temp = max_input.copy()
+            max_input = np.zeros(np.shape(self.weights[j+1])[1]) 
+            for i in range(len(max_input)):
+                max_input[i] = np.sum([w[k][i]*temp[k] for k in range(len(temp)) if w[k][i] > 0])
+
+        print('\n\ncalibrating output layer') 
+        #output layer          
+        b = biases[-1] 
+        for i in range(self.noutputs):
+            print(i) 
+            #max_output = max_input[i]*b[i] 
+            max_output = b[i]
+            result = self.output_layer[i].calibrate_vref(max_input[i], max_output) 
+            # if not result:
+            #     print('neuron calibration failed') 
+
+        #store calibrated vrefs in self.biases
+        b1 = [n.vref for n in self.input_layer]
+        b = [[n.vref for n in l] for l in self.hidden_layers]
+        b_last = [n.vref for n in self.output_layer] 
+        self.biases.append(b1)
+        for v in b:
+            self.biases.append(v)
+        self.biases.append(b_last) 
+
+  
+            
 
 
 
