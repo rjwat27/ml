@@ -65,7 +65,17 @@ def linear_interpolator(x, x_values=vco_curve[:,0], y_values=vco_curve[:,1]):
     
     return y, slope 
 
-
+def weight_to_bits(weight):
+    sign = 1 if weight<0 else 0
+    w = abs(weight) 
+    temp = [0, 0, 0, 0, 0] 
+    temp[4] = 1 if w>.5 else 0 
+    temp[3] = 1 if w>(.5*temp[4] + .25) else 0 
+    temp[2] = 1 if w>(.5*temp[4] + temp[3]*.25 + .125) else 0 
+    temp[1] = 1 if w>(.5*temp[4] + temp[3]*.25 + temp[2]*.125 + .0625) else 0
+    temp[0] = sign 
+    return temp 
+    
 
 class Lin_Int(torch.autograd.Function):
     @staticmethod
@@ -158,6 +168,10 @@ class PDNNeuron_Layer(nn.Module):
         self.output_stream.append(output.detach().clone().numpy())#output.detach().numpy())
         return output 
 
+
+    def generate_weight_bistream(self):
+
+        pass 
     # @staticmethod 
     # def backward(self, grad_output):
       
@@ -196,6 +210,10 @@ class Chip(nn.Module):
         x = self.output_layer(x)
         #x = torch.relu(x) 
         return x
+    
+    def generate_bitstream(self):
+
+        pass 
 
 
 def compute_chip_weights(model, inputs, targets, num_epochs=100, sample_exposure=10):
@@ -257,34 +275,34 @@ def compute_chip_weights(model, inputs, targets, num_epochs=100, sample_exposure
 
 
 # Example usage
-x = torch.ones(3)
-test =Chip() 
-boo = PDNNeuron_Layer(output_size=1)
+# x = torch.ones(3)
+# test =Chip() 
+# boo = PDNNeuron_Layer(output_size=1)
 
-inputs = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0]])
-targets = torch.tensor([[0.0], [1.0], [1.0], [0.0], [1.0], [0.0], [0.0], [1.0]])
+# inputs = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0]])
+# targets = torch.tensor([[0.0], [1.0], [1.0], [0.0], [1.0], [0.0], [0.0], [1.0]])
 
-#input(boo(x))
-# for p in boo.named_parameters():
-#     print(p) 
-# input()
-compute_chip_weights(test, inputs, targets)
+# #input(boo(x))
+# # for p in boo.named_parameters():
+# #     print(p) 
+# # input()
+# compute_chip_weights(test, inputs, targets)
 
-fig, axes = plt.subplots(1, 3)
+# fig, axes = plt.subplots(1, 3)
 
-s = test.output_layer.vco_stream
-n = test.output_layer.output_stream
-f = test.output_layer.freq_stream 
-p = test.output_layer.phase_stream
-# input(n)
+# s = test.output_layer.vco_stream
+# n = test.output_layer.output_stream
+# f = test.output_layer.freq_stream 
+# p = test.output_layer.phase_stream
+# # input(n)
 
-x = range(len(n))
-axes[0].plot(x, s, 'blue')
-axes[1].plot(x, f, 'green') 
-axes[2].plot(x, p, 'magenta') 
+# x = range(len(n))
+# axes[0].plot(x, s, 'blue')
+# axes[1].plot(x, f, 'green') 
+# axes[2].plot(x, p, 'magenta') 
 
 
-plt.show()
+# plt.show()
 
 
 

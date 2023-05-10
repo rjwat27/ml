@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+#from torch.utils.data import Dataset, DataLoader
 
 xor_inputs = np.array([[0, 0, 0], [1, 0, 1], [1, 1, 0], [0, 1, 1], [1, 0, 0], [0, 0, 1], [0, 1, 0], [1, 1, 1]]) 
 xor_outputs = np.array([0, 0, 0, 0, 1, 1, 1, 1]) 
@@ -30,7 +30,9 @@ pdn.energy_per_spike = 1#max_bias * 1.1
 import pytorch_weight_finder as pwf 
 
 '''importing parameters from pytorch model'''
-
+TEST = pwf.Chip() 
+TEST.generate_bitstream()
+input() 
 
 '''generating model from network similar to pdn'''
 # loss, model = pwf.get_weights(inputs2, targets2, num_epochs=int(10e3), clipping='during', graph=True, quantized=True) 

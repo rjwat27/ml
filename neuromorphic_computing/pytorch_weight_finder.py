@@ -23,6 +23,21 @@ def map_to_nearest_4(val):
     
     return nearest_5_val
 
+def weight_to_bits(weight, reverse=False):
+    sign = 1 if weight<0 else 0
+    w = abs(weight) 
+    temp = [0, 0, 0, 0, 0] 
+    temp[4] = 1 if w>.5 else 0 
+    temp[3] = 1 if w>(.5*temp[4] + .25) else 0 
+    temp[2] = 1 if w>(.5*temp[4] + temp[3]*.25 + .125) else 0 
+    temp[1] = 1 if w>(.5*temp[4] + temp[3]*.25 + temp[2]*.125 + .0625) else 0
+    temp[0] = sign 
+    if reverse:
+        temp.reverse() 
+    
+    return temp 
+    
+
 class MultiplicativeBias(nn.Module):
     def __init__(self, hidden):
         super().__init__()
@@ -37,6 +52,73 @@ class MultiplicativeBias(nn.Module):
     def forward(self, x):
         return torch.arctan(x * self.bias.unsqueeze(0)) 
         #return x * self.bias.unsqueeze(0)
+
+class Chip(nn.Module):
+    def __init__(self):
+        super(Chip, self).__init__()
+        self.fc0 = nn.Linear(3, 3, bias=False) 
+        self.fc1 = nn.Linear(3, 3, bias=False)
+        self.fc2 = nn.Linear(3, 3, bias=False)
+    
+        self.relu0 = torch.nn.LeakyReLU(negative_slope=-.1) 
+        self.relu1 = torch.nn.LeakyReLU(negative_slope=-.1) 
+        self.relu2 = torch.nn.LeakyReLU(negative_slope=-.1) 
+        self.relu3 = torch.nn.LeakyReLU(negative_slope=-.1) 
+
+        self.bias0 = MultiplicativeBias(3) 
+        self.bias1 = MultiplicativeBias(3) 
+        self.bias2 = MultiplicativeBias(3)
+        self.bias3 = MultiplicativeBias(3)
+
+    def forward(self, x):
+        x = self.bias0(x)
+        x = self.relu0(x) 
+        x = self.fc0(x)
+        x = self.bias1(x)
+        x = self.relu1(x)
+        x = self.fc1(x)
+        x = self.bias2(x)
+        x = self.relu2(x)
+        x = self.fc2(x)
+        x = self.bias3(x)
+        x = self.relu3(x) 
+        #x = torch.sigmoid(x) 
+
+        return x
+    
+    def generate_bitstream(self):
+        weights = pytorch_params_to_numpy(self)[0:3]
+        w0 = weights[0]
+        w1 = weights[1]
+        w2 = weights[2]
+
+        W0 = []
+        for vector in w0:
+            W0 += weight_to_bits(vector[0])
+            W0 += weight_to_bits(vector[1])
+            W0 += weight_to_bits(vector[2])
+        W0.reverse() 
+
+        W1 = []
+        for vector in w1:
+            W1 += weight_to_bits(vector[0])
+            W1 += weight_to_bits(vector[1])
+            W1 += weight_to_bits(vector[2])
+        
+
+        W2 = []
+        for vector in w2:
+            W2 += weight_to_bits(vector[0])
+            W2 += weight_to_bits(vector[1])
+            W2 += weight_to_bits(vector[2])
+        W2.reverse() 
+
+        W = []
+        W += W0 + W1 + W2 
+        print(len(W))
+        #return W 
+    
+
 
 def get_weights(inputs, targets, hidden=3, num_epochs=int(10e3), clipping=None, quantized=False, graph=False, leak=False):
     # Define the neural network model
