@@ -21,28 +21,31 @@ xor_outputs2 = np.array([0, 1, 1, 0])
 inputs = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0]])
 targets = torch.tensor([[0.0], [1.0], [1.0], [0.0], [1.0], [0.0], [0.0], [1.0]])
 
-inputs2 = torch.tensor([[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]])
+inputs2 = torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
 targets2 = torch.tensor([[0.0], [1.0], [1.0], [0.0]]) 
 
 
 pdn.energy_per_spike = 1#max_bias * 1.1 
 
 import pytorch_weight_finder as pwf 
+import json 
+
 
 '''importing parameters from pytorch model'''
-TEST = pwf.Chip() 
-TEST.generate_bitstream()
-input() 
+# TEST = pwf.Chip() 
+# TEST.generate_bitstream()
+
 
 '''generating model from network similar to pdn'''
-# loss, model = pwf.get_weights(inputs2, targets2, num_epochs=int(10e3), clipping='during', graph=True, quantized=True) 
-# n_params = pwf.pytorch_params_to_numpy(model) 
 
+loss, model = pwf.learn(inputs2, targets2, num_epochs=int(1e3), clipping='during', graph=False, quantized=False) 
+#input()
+n_params = pwf.pytorch_params_to_numpy(model) 
+print(n_params)
+#temp = np.array(n_params, dtype=object)
+np.save('model_parameters', n_params, allow_pickle=True) 
 
-# np.save('testtest', np.array(n_params, dtype=object), allow_pickle=True) 
-
-n_params = np.load('testtest.npy', allow_pickle=True) 
-#input(n_params) 
+n_params = np.load('model_parameters.npy', allow_pickle=True) 
 
 '''test with custom weights'''
 # w1 = np.array([[.9, .9, .9], [.9, .9, .9], [.9, .9, .9]])
@@ -67,24 +70,25 @@ n_params = np.load('testtest.npy', allow_pickle=True)
 # input()
 
 #input(n_params[4]) 
-weights = [n_params[0].T, n_params[1].T, n_params[2].T, n_params[3].T]#, n_params[3]]
+weights = [n_params[0].T, n_params[1].T, n_params[2].T]#, n_params[3]]
 #weights = [n_params[0].T, n_params[1].T, n_params[2].T]
 # np.save('asd;lkfj', weights) 
 
 
 # np.flip(weights) 
-biases = [n_params[4], n_params[5], n_params[6], n_params[7]]#, n_params[7]] 
+biases = [n_params[3], n_params[4], n_params[5], n_params[6]]#, n_params[7]] 
 #biases = [n_params[3], n_params[4], n_params[5]]
 
 #net = pn.pdn_network(3, 1, [len(biases[0]), 1])
-net = pn.pdn_network(2, 1, [len(biases[0]), len(biases[0]), len(biases[0]), 1]) 
+#net = pn.pdn_network(3, 1, [len(biases[0]), len(biases[0]), len(biases[0]), 1]) 
+net = pn.pdn_network(3, 3, [3, 3, 3, 3]) 
 #np.flip(biases)
 #input(biases)
 #input(weights[0])
 net.weights = weights 
  
-# print('beginning calibration')
-# net.calibrate_network_biases([1, 1, 1], biases)
+print('beginning calibration')
+net.calibrate_network_biases([1, 1, 1], biases)
 
 '''pytorch loading done'''
 
@@ -159,8 +163,9 @@ def load():
 # net.calibrate_network_biases([1, 1], biases)
 # print('calibration successful?')
 
-#net.Save() 
-net.Load()
+net.Save() 
+input('calibration done and saved') 
+#net.Load()
 # input(net.weights)
 # B = [n.vref for n in net.input_layer] 
 # input(B)

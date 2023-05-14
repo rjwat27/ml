@@ -120,57 +120,29 @@ class Chip(nn.Module):
     
 
 
-def get_weights(inputs, targets, hidden=3, num_epochs=int(10e3), clipping=None, quantized=False, graph=False, leak=False):
-    # Define the neural network model
-    class PDNModel(nn.Module):
-        def __init__(self):
-            super(PDNModel, self).__init__()
-            self.fc0 = nn.Linear(len(inputs[0]), hidden, bias=False) 
-            self.fc1 = nn.Linear(hidden, hidden, bias=False)
-            self.fc2 = nn.Linear(hidden, hidden, bias=False)
-            self.fc3 = nn.Linear(hidden, 1, bias=False)
-            self.relu0 = torch.nn.LeakyReLU(negative_slope=-.1) 
-            self.relu1 = torch.nn.LeakyReLU(negative_slope=-.1) 
-            self.relu2 = torch.nn.LeakyReLU(negative_slope=-.1) 
-            self.relu3 = torch.nn.LeakyReLU(negative_slope=-.1) 
-            self.bias0 = MultiplicativeBias(hidden) 
-            self.bias1 = MultiplicativeBias(hidden) 
-            self.bias2 = MultiplicativeBias(hidden)
-            self.bias3 = MultiplicativeBias(1)
+def learn(inputs, targets, num_epochs=int(10e3), clipping='during', quantized=False, graph=False):
 
-        def forward(self, x):
-            x = self.fc0(x) 
-            x = self.bias0(x)
-            x = self.relu0(x) 
-            x = self.fc1(x)
-            x = self.bias1(x)
-            x = self.relu1(x)
-            x = self.fc2(x)
-            x = self.bias2(x)
-            x = self.relu2(x)
-            x = self.fc3(x)
-            x = self.bias3(x)
-            x = self.relu3(x) 
-            #x = torch.sigmoid(x) 
+    #resize inputs if necessary
+    num_inputs = len(inputs)
+    temp = len(inputs[0])
+    tail = torch.zeros(num_inputs, 3-temp) 
+    if temp != 0:
+       inputs = torch.concat((inputs, tail), dim=1)
 
-            return x
+
+    #resize targets if necessary
+    num_targets = len(targets)
+    temp = len(targets[0])
+    tail = torch.zeros(num_targets, 3-temp) 
+    if temp != 0:
+       targets = torch.concat((targets, tail), dim=1)
 
     # Initialize the model and the optimizer
-    model = PDNModel()
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
-    #return 5, model
-    # weight_clip_value = 1
-    # bias_top_clip_value = .98
-    # bias_bottom_clip_value = 0
-    # for name, param in model.named_parameters():
-    #     param.register_hook(lambda grad: torch.clamp(grad, min=-1, max=1)) 
-    #     if "bias" in name:
-    #         param.register_hook(lambda grad: torch.clamp(grad, min=bias_bottom_clip_value, max=bias_top_clip_value))
-    #     elif "weight" in name:
-    #         param.register_hook(lambda grad: torch.clamp(grad, min=-weight_clip_value, max=weight_clip_value))
+    model = Chip()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Train the model
-    graph_stuff = []
+    graph_stuff = []    #for post-learning analysis
     for epoch in range(num_epochs):
         # Forward pass
         y_pred = model(inputs)
@@ -178,6 +150,7 @@ def get_weights(inputs, targets, hidden=3, num_epochs=int(10e3), clipping=None, 
         # Compute the loss
         loss = nn.MSELoss()(y_pred, targets)
         graph_stuff.append(loss.clone().detach().numpy()) 
+
         # Backward pass and optimization step
         optimizer.zero_grad()
         loss.backward()
@@ -195,6 +168,15 @@ def get_weights(inputs, targets, hidden=3, num_epochs=int(10e3), clipping=None, 
         # Print the loss every 1000 epochs
         if epoch % 1000 == 0:
             print(f"Epoch {epoch}, Loss: {loss.item()}")
+            if clipping=='during':
+                for name, param in model.named_parameters():
+                    if "weight" in name:
+                        param.data = torch.clamp(param.data, -1, 1)
+                        if quantized:
+                            param.data = (torch.round(param.data*15) / 16)
+                    if "bias" in name:
+                        param.data = torch.clamp(param.data, min=.13, max=.9)
+
 
     if clipping=='after':
         for name, param in model.named_parameters():
@@ -225,7 +207,7 @@ def get_weights(inputs, targets, hidden=3, num_epochs=int(10e3), clipping=None, 
 def pytorch_params_to_numpy(model):
     '''bias vectors are listed first, follewed by weights matrices'''
     params = list(model.parameters())
-    return [p.detach().numpy() for p in params]
+    return [p.detach().numpy().astype(object) for p in params]
   
 
 def lin_interpolator(points, upscale_factor=10, der=0):
