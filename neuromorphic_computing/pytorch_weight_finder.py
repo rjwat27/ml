@@ -86,7 +86,9 @@ class Chip(nn.Module):
 
         return x
     
-    def generate_bitstream(self):
+
+    #generate bitstream of weights->csv
+    def generate_bitstream(self, destination_file):
         weights = pytorch_params_to_numpy(self)[0:3]
         w0 = weights[0]
         w1 = weights[1]
@@ -97,25 +99,27 @@ class Chip(nn.Module):
             W0 += weight_to_bits(vector[0])
             W0 += weight_to_bits(vector[1])
             W0 += weight_to_bits(vector[2])
-        W0.reverse() 
+        
 
         W1 = []
         for vector in w1:
             W1 += weight_to_bits(vector[0])
             W1 += weight_to_bits(vector[1])
             W1 += weight_to_bits(vector[2])
-        
+        W1.reverse()
 
         W2 = []
         for vector in w2:
             W2 += weight_to_bits(vector[0])
             W2 += weight_to_bits(vector[1])
             W2 += weight_to_bits(vector[2])
-        W2.reverse() 
+       
 
         W = []
         W += W0 + W1 + W2 
-        print(len(W))
+        W = np.array(W, dtype=int) 
+        np.savetxt(destination_file, W)
+        #print(len(W))
         #return W 
     
 

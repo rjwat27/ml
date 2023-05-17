@@ -300,7 +300,7 @@ class pdn_network():
         for i in range(len(self.hidden)-1):
             input1 = [self.hidden_layers[i][j].forward(input1[j]) for j in range(self.hidden[i])]
             #print(input1)
-            input1 = np.dot(input1, self.weights[i+1]) 
+            input1 = np.dot(input1, self.weights[i]) 
             
         # print(self.weights[-1])
         # input()
@@ -406,9 +406,9 @@ class pdn_network():
            
             max_input = [np.average(n.forward_burst(max_input[i], iter=100)) for n in self.hidden_layers[j]]
 
-            w = self.weights[j+1]
+            w = self.weights[j]#+1]
             temp = max_input.copy()
-            max_input = np.zeros(np.shape(self.weights[j+1])[1]) 
+            max_input = np.zeros(np.shape(self.weights[j])[1]) 
             for i in range(len(max_input)):
                 max_input[i] = np.sum([w[k][i]*temp[k] for k in range(len(temp)) if w[k][i] > 0])
 
