@@ -3,6 +3,7 @@ import numpy as np
 xor_inputs = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] 
 xor_outputs = [0, 1, 1, 0, 1, 0, 0, 1]  
 
+
 def relu(x):
     return np.maximum(0, np.arctan(x)) 
 def sig(x):
