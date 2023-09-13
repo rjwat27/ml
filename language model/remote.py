@@ -25,10 +25,22 @@ def define(word):
         return result['meanings'][0]['definitions'][0]['definition'], ''
 
 
-#print(define('way'))
+def get_word_details(word):
+    try:
+        result = r.get(dictionary_base_address+word).json()[0]
+        return result
+    except:
+        print('fail') 
+        return '', '' 
 
-
-
+def get_word_logical(word):
+        try:
+            result = r.get(dictionary_base_address+word).json()[0]
+            parts = [m['partOfSpeech'] for m in result['meanings']]
+            return parts
+        except:
+            print('fail') 
+            return None
 
 
 

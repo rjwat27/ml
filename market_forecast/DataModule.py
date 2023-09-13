@@ -21,9 +21,17 @@ class Watcher():
         return float(Data['price']) 
 
 
+class yahoo_fin():
+    def __init__(self):
+        self.url = 'https://finance.yahoo.com/quote/AAPL/'
+
+    def get_page(self):
+
+        pass
+
 
 class DataBase():
-    def __init__(self, symbol, filename):
+    def __init__(self,  symbol='BTCUSD', filename='./temp'):
         self.symbol = symbol
         self.tick_data = {} 
         self.live_data = {} 
